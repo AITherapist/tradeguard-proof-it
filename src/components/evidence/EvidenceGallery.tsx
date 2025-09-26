@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent } from '@/components/ui/card';
@@ -40,15 +40,7 @@ export function EvidenceGallery({ jobId }: EvidenceGalleryProps) {
   const [selectedEvidence, setSelectedEvidence] = useState<EvidenceItem | null>(null);
   const { toast } = useToast();
 
-  useEffect(() => {
-    fetchEvidence();
-  }, [jobId]);
-
-  useEffect(() => {
-    filterEvidence();
-  }, [evidence, searchTerm, typeFilter]);
-
-  const fetchEvidence = async () => {
+  const fetchEvidence = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('evidence_items')
@@ -68,9 +60,9 @@ export function EvidenceGallery({ jobId }: EvidenceGalleryProps) {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [jobId, toast]);
 
-  const filterEvidence = () => {
+  const filterEvidence = useCallback(() => {
     let filtered = evidence;
 
     if (searchTerm) {
@@ -84,7 +76,15 @@ export function EvidenceGallery({ jobId }: EvidenceGalleryProps) {
     }
 
     setFilteredEvidence(filtered);
-  };
+  }, [evidence, searchTerm, typeFilter]);
+
+  useEffect(() => {
+    fetchEvidence();
+  }, [fetchEvidence]);
+
+  useEffect(() => {
+    filterEvidence();
+  }, [filterEvidence]);
 
   const getEvidenceTypeColor = (type: string) => {
     switch (type) {

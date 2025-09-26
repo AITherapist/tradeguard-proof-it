@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { User, Session } from '@supabase/supabase-js';
 
@@ -29,7 +29,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [subscription, setSubscription] = useState<SubscriptionStatus | null>(null);
   const [subscriptionLoading, setSubscriptionLoading] = useState(false);
 
-  const checkSubscription = async () => {
+  const checkSubscription = useCallback(async () => {
     if (!session) return;
     
     setSubscriptionLoading(true);
@@ -64,7 +64,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setSubscriptionLoading(false);
     }
-  };
+  }, [session]);
 
   const signOut = async () => {
     await supabase.auth.signOut();
@@ -118,7 +118,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }, 60000);
 
     return () => clearInterval(interval);
-  }, [session?.user]);
+  }, [session?.user, checkSubscription]);
 
   const value = {
     user,
