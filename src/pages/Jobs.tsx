@@ -1,12 +1,15 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { JobForm } from '@/components/job/JobForm';
-import { JobList } from '@/components/job/JobList';
 import { JobDetailView } from '@/components/job/JobDetailView';
+import { ApprovalWorkflow } from '@/components/approval/ApprovalWorkflow';
+import { AnalyticsDashboard } from '@/components/analytics/AnalyticsDashboard';
+import { GDPRCompliance } from '@/components/gdpr/GDPRCompliance';
+import { JobList } from '@/components/job/JobList';
+import { JobForm } from '@/components/job/JobForm';
 import { EvidenceCapture } from '@/components/evidence/EvidenceCapture';
-import { Plus, ArrowLeft } from 'lucide-react';
+import { Plus, ArrowLeft, BarChart3, Shield, FileCheck, Settings } from 'lucide-react';
 
-type ViewMode = 'list' | 'create' | 'evidence' | 'detail';
+type ViewMode = 'list' | 'create' | 'evidence' | 'detail' | 'approval' | 'analytics' | 'gdpr';
 
 export default function Jobs() {
   const [viewMode, setViewMode] = useState<ViewMode>('list');
@@ -24,6 +27,11 @@ export default function Jobs() {
   const handleEvidenceCapture = (jobId: string) => {
     setSelectedJobId(jobId);
     setViewMode('evidence');
+  };
+
+  const handleApprovalWorkflow = (jobId: string) => {
+    setSelectedJobId(jobId);
+    setViewMode('approval');
   };
 
   const handleEvidenceCaptured = () => {
@@ -60,19 +68,56 @@ export default function Jobs() {
             </Button>
           </div>
         );
+      case 'approval':
+        return (
+          <div className="flex items-center gap-4 mb-6">
+            <Button variant="ghost" size="sm" onClick={() => setViewMode('list')}>
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to Jobs
+            </Button>
+          </div>
+        );
+      case 'analytics':
+        return (
+          <div className="flex items-center gap-4 mb-6">
+            <Button variant="ghost" size="sm" onClick={() => setViewMode('list')}>
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to Jobs
+            </Button>
+          </div>
+        );
+      case 'gdpr':
+        return (
+          <div className="flex items-center gap-4 mb-6">
+            <Button variant="ghost" size="sm" onClick={() => setViewMode('list')}>
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to Jobs
+            </Button>
+          </div>
+        );
       default:
         return (
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
             <div>
               <h1 className="text-3xl font-bold">Jobs</h1>
               <p className="text-muted-foreground">
                 Manage your jobs and capture evidence
               </p>
             </div>
-            <Button onClick={() => setViewMode('create')}>
-              <Plus className="h-4 w-4 mr-2" />
-              New Job
-            </Button>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <Button variant="outline" onClick={() => setViewMode('analytics')}>
+                <BarChart3 className="h-4 w-4 mr-2" />
+                Analytics
+              </Button>
+              <Button variant="outline" onClick={() => setViewMode('gdpr')}>
+                <Shield className="h-4 w-4 mr-2" />
+                Data Protection
+              </Button>
+              <Button onClick={() => setViewMode('create')}>
+                <Plus className="h-4 w-4 mr-2" />
+                New Job
+              </Button>
+            </div>
           </div>
         );
     }
@@ -102,6 +147,16 @@ export default function Jobs() {
             onBack={() => setViewMode('list')}
           />
         ) : null;
+      case 'approval':
+        return selectedJobId ? (
+          <ApprovalWorkflow
+            jobId={selectedJobId}
+          />
+        ) : null;
+      case 'analytics':
+        return <AnalyticsDashboard />;
+      case 'gdpr':
+        return <GDPRCompliance />;
       default:
         return (
           <JobList
@@ -113,7 +168,7 @@ export default function Jobs() {
   };
 
   return (
-    <div className="container mx-auto p-4 max-w-4xl">
+    <div className="container mx-auto p-4 max-w-6xl">
       {renderHeader()}
       {renderContent()}
     </div>

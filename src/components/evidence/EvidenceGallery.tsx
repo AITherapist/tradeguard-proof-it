@@ -163,19 +163,22 @@ export function EvidenceGallery({ jobId }: EvidenceGalleryProps) {
             className="pl-10"
           />
         </div>
-        <Select value={typeFilter} onValueChange={setTypeFilter}>
-          <SelectTrigger className="w-full sm:w-48">
-            <Filter className="h-4 w-4 mr-2" />
-            <SelectValue placeholder="Filter by type" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Types</SelectItem>
-            <SelectItem value="before">Before</SelectItem>
-            <SelectItem value="progress">Progress</SelectItem>
-            <SelectItem value="after">After</SelectItem>
-            <SelectItem value="approval">Approval</SelectItem>
-          </SelectContent>
-        </Select>
+            <Select value={typeFilter} onValueChange={setTypeFilter}>
+              <SelectTrigger className="w-full sm:w-48">
+                <Filter className="h-4 w-4 mr-2" />
+                <SelectValue placeholder="Filter by type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Types</SelectItem>
+                <SelectItem value="before">Before</SelectItem>
+                <SelectItem value="progress">Progress</SelectItem>
+                <SelectItem value="after">After</SelectItem>
+                <SelectItem value="approval">Approval</SelectItem>
+                <SelectItem value="defect">Defect</SelectItem>
+                <SelectItem value="contract">Contract</SelectItem>
+                <SelectItem value="receipt">Receipt</SelectItem>
+              </SelectContent>
+            </Select>
       </div>
 
       {/* Evidence Grid */}

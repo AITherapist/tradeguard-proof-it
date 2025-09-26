@@ -13,6 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, Camera, Upload, MapPin, CheckCircle, Clock, AlertCircle } from 'lucide-react';
+import { BlockchainVerification } from '@/components/blockchain/BlockchainVerification';
 
 const evidenceSchema = z.object({
   evidence_type: z.enum(['before', 'progress', 'after', 'approval']),

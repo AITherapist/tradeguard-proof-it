@@ -22,7 +22,8 @@ import {
   Clock,
   CheckCircle,
   AlertTriangle,
-  BarChart3
+  BarChart3,
+  FileCheck
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -404,6 +405,14 @@ export function JobDetailView({ jobId, onBack }: JobDetailViewProps) {
             <Button onClick={() => setShowEvidenceCapture(true)} className="flex-1 sm:flex-none">
               <Camera className="h-4 w-4 mr-2" />
               Single Capture
+            </Button>
+            <Button 
+              variant="outline" 
+              onClick={() => window.open(`/jobs/${jobId}/approval`, '_blank')}
+              className="flex-1 sm:flex-none"
+            >
+              <FileCheck className="h-4 w-4 mr-2" />
+              Client Approval
             </Button>
           </div>
           <EvidenceGallery jobId={jobId} />
