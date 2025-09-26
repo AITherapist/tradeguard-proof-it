@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/components/ui/auth-provider';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
+import { MobileNav } from '@/components/navigation/MobileNav';
 import { 
   Shield, 
   Plus, 
@@ -17,7 +18,8 @@ import {
   TrendingUp,
   Clock,
   CheckCircle,
-  AlertTriangle
+  AlertTriangle,
+  Briefcase
 } from 'lucide-react';
 
 interface Job {
@@ -46,6 +48,7 @@ export default function Dashboard() {
   const [jobsLoading, setJobsLoading] = useState(true);
   const [isCreatingCheckout, setIsCreatingCheckout] = useState(false);
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   // Redirect if not authenticated
   if (!loading && !user) {
@@ -204,28 +207,39 @@ export default function Dashboard() {
             </div>
             
             <div className="flex items-center space-x-4">
+              <MobileNav />
               <Badge variant={statusInfo.variant}>{statusInfo.text}</Badge>
               
-              {!hasActiveAccess && (
+              <div className="hidden md:flex items-center space-x-4">
                 <Button 
-                  onClick={handleCreateCheckout}
-                  disabled={isCreatingCheckout}
-                  className="bg-gradient-to-r from-primary to-primary-glow"
+                  variant="outline" 
+                  onClick={() => navigate('/jobs')}
                 >
-                  {isCreatingCheckout ? 'Loading...' : 'Subscribe £99/month'}
+                  <Briefcase className="h-4 w-4 mr-2" />
+                  Jobs
                 </Button>
-              )}
-              
-              {subscription?.customer_id && (
-                <Button variant="outline" onClick={handleManageSubscription}>
-                  <CreditCard className="h-4 w-4 mr-2" />
-                  Manage Billing
+                
+                {!hasActiveAccess && (
+                  <Button 
+                    onClick={handleCreateCheckout}
+                    disabled={isCreatingCheckout}
+                    className="bg-gradient-to-r from-primary to-primary-glow"
+                  >
+                    {isCreatingCheckout ? 'Loading...' : 'Subscribe £99/month'}
+                  </Button>
+                )}
+                
+                {subscription?.customer_id && (
+                  <Button variant="outline" onClick={handleManageSubscription}>
+                    <CreditCard className="h-4 w-4 mr-2" />
+                    Manage Billing
+                  </Button>
+                )}
+                
+                <Button variant="outline" onClick={signOut}>
+                  Sign Out
                 </Button>
-              )}
-              
-              <Button variant="outline" onClick={signOut}>
-                Sign Out
-              </Button>
+              </div>
             </div>
           </div>
         </div>
@@ -327,7 +341,10 @@ export default function Dashboard() {
 
         {/* Quick Actions */}
         <div className="grid md:grid-cols-3 gap-6 mb-8">
-          <Card className="cursor-pointer hover:shadow-lg transition-shadow">
+          <Card 
+            className="cursor-pointer hover:shadow-lg transition-shadow"
+            onClick={() => navigate('/jobs')}
+          >
             <CardHeader>
               <CardTitle className="flex items-center space-x-2">
                 <Plus className="h-5 w-5 text-primary" />
@@ -337,7 +354,10 @@ export default function Dashboard() {
             </CardHeader>
           </Card>
           
-          <Card className="cursor-pointer hover:shadow-lg transition-shadow">
+          <Card 
+            className="cursor-pointer hover:shadow-lg transition-shadow"
+            onClick={() => navigate('/jobs')}
+          >
             <CardHeader>
               <CardTitle className="flex items-center space-x-2">
                 <Camera className="h-5 w-5 text-accent" />
@@ -377,7 +397,7 @@ export default function Dashboard() {
                 <Shield className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                 <h3 className="text-lg font-semibold text-foreground mb-2">No jobs yet</h3>
                 <p className="text-muted-foreground mb-6">Start protecting your work by creating your first job</p>
-                <Button>
+                <Button onClick={() => navigate('/jobs')}>
                   <Plus className="h-4 w-4 mr-2" />
                   Create First Job
                 </Button>
