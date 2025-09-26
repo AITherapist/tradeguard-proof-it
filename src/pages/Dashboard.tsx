@@ -50,20 +50,6 @@ export default function Dashboard() {
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  // Redirect if not authenticated
-  if (!loading && !user) {
-    return <Navigate to="/auth" replace />;
-  }
-
-  // Loading state
-  if (loading || !user) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-      </div>
-    );
-  }
-
   const loadJobs = async () => {
     if (!user) return;
     
@@ -112,6 +98,20 @@ export default function Dashboard() {
       loadProfile();
     }
   }, [user]);
+
+  // Redirect if not authenticated
+  if (!loading && !user) {
+    return <Navigate to="/auth" replace />;
+  }
+
+  // Loading state
+  if (loading || !user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   const handleCreateCheckout = async () => {
     if (!session) return;
