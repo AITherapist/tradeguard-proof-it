@@ -2,10 +2,11 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { JobForm } from '@/components/job/JobForm';
 import { JobList } from '@/components/job/JobList';
+import { JobDetailView } from '@/components/job/JobDetailView';
 import { EvidenceCapture } from '@/components/evidence/EvidenceCapture';
 import { Plus, ArrowLeft } from 'lucide-react';
 
-type ViewMode = 'list' | 'create' | 'evidence';
+type ViewMode = 'list' | 'create' | 'evidence' | 'detail';
 
 export default function Jobs() {
   const [viewMode, setViewMode] = useState<ViewMode>('list');
@@ -13,6 +14,11 @@ export default function Jobs() {
 
   const handleJobCreated = () => {
     setViewMode('list');
+  };
+
+  const handleJobSelect = (jobId: string) => {
+    setSelectedJobId(jobId);
+    setViewMode('detail');
   };
 
   const handleEvidenceCapture = (jobId: string) => {
@@ -37,6 +43,15 @@ export default function Jobs() {
           </div>
         );
       case 'evidence':
+        return (
+          <div className="flex items-center gap-4 mb-6">
+            <Button variant="ghost" size="sm" onClick={() => setViewMode('list')}>
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to Jobs
+            </Button>
+          </div>
+        );
+      case 'detail':
         return (
           <div className="flex items-center gap-4 mb-6">
             <Button variant="ghost" size="sm" onClick={() => setViewMode('list')}>
@@ -80,9 +95,17 @@ export default function Jobs() {
             onCancel={() => setViewMode('list')}
           />
         ) : null;
+      case 'detail':
+        return selectedJobId ? (
+          <JobDetailView
+            jobId={selectedJobId}
+            onBack={() => setViewMode('list')}
+          />
+        ) : null;
       default:
         return (
           <JobList
+            onJobSelect={handleJobSelect}
             onEvidenceCapture={handleEvidenceCapture}
           />
         );
