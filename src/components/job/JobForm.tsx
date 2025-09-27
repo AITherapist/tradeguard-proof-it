@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -17,6 +17,7 @@ const jobSchema = z.object({
   client_phone: z.string().optional(),
   client_address: z.string().min(1, 'Client address is required').max(500),
   job_type: z.enum(['plumbing', 'electrical', 'heating', 'roofing', 'painting', 'other', 'construction', 'flooring', 'kitchen_fitting', 'bathroom_fitting']),
+  custom_job_type: z.string().optional(),
   job_description: z.string().max(1000).optional(),
   contract_value: z.number().min(0).optional(),
   start_date: z.string().optional(),
@@ -28,25 +29,39 @@ type JobFormData = z.infer<typeof jobSchema>;
 interface JobFormProps {
   onSuccess?: () => void;
   onCancel?: () => void;
+  jobData?: any;
+  isEditing?: boolean;
 }
 
-export function JobForm({ onSuccess, onCancel }: JobFormProps) {
+export function JobForm({ onSuccess, onCancel, jobData, isEditing = false }: JobFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showCustomJobType, setShowCustomJobType] = useState(jobData?.job_type === 'other' || false);
   const { toast } = useToast();
 
   const form = useForm<JobFormData>({
     resolver: zodResolver(jobSchema),
     defaultValues: {
-      client_name: '',
-      client_phone: '',
-      client_address: '',
-      job_type: 'other',
-      job_description: '',
-      contract_value: undefined,
-      start_date: '',
-      completion_date: '',
+      client_name: jobData?.client_name || '',
+      client_phone: jobData?.client_phone || '',
+      client_address: jobData?.client_address || '',
+      job_type: jobData?.job_type || 'other',
+      custom_job_type: jobData?.custom_job_type || '',
+      job_description: jobData?.job_description || '',
+      contract_value: jobData?.contract_value || undefined,
+      start_date: jobData?.start_date || '',
+      completion_date: jobData?.completion_date || '',
     },
   });
+
+  const watchJobType = form.watch("job_type");
+  
+  // Show custom job type field when "other" is selected
+  React.useEffect(() => {
+    setShowCustomJobType(watchJobType === 'other');
+    if (watchJobType !== 'other') {
+      form.setValue('custom_job_type', '');
+    }
+  }, [watchJobType, form]);
 
   const onSubmit = async (data: JobFormData) => {
     setIsSubmitting(true);
@@ -54,11 +69,12 @@ export function JobForm({ onSuccess, onCancel }: JobFormProps) {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
-      const jobData = {
+      const submissionData = {
         client_name: data.client_name,
         client_phone: data.client_phone || null,
         client_address: data.client_address,
         job_type: data.job_type,
+        custom_job_type: data.job_type === 'other' ? data.custom_job_type : null,
         job_description: data.job_description || null,
         user_id: user.id,
         contract_value: data.contract_value || null,
@@ -66,15 +82,25 @@ export function JobForm({ onSuccess, onCancel }: JobFormProps) {
         completion_date: data.completion_date || null,
       };
 
-      const { error } = await supabase
-        .from('jobs')
-        .insert(jobData);
+      let error;
+      if (isEditing && jobData?.id) {
+        const { error: updateError } = await supabase
+          .from('jobs')
+          .update(submissionData)
+          .eq('id', jobData.id);
+        error = updateError;
+      } else {
+        const { error: insertError } = await supabase
+          .from('jobs')
+          .insert(submissionData);
+        error = insertError;
+      }
 
       if (error) throw error;
 
       toast({
-        title: 'Job created successfully',
-        description: 'You can now start capturing evidence for this job.',
+        title: isEditing ? 'Job updated successfully' : 'Job created successfully',
+        description: isEditing ? 'The job details have been updated.' : 'You can now start capturing evidence for this job.',
       });
 
       form.reset();
@@ -96,7 +122,7 @@ export function JobForm({ onSuccess, onCancel }: JobFormProps) {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Plus className="h-5 w-5" />
-          Create New Job
+          {isEditing ? 'Edit Job' : 'Create New Job'}
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -147,13 +173,13 @@ export function JobForm({ onSuccess, onCancel }: JobFormProps) {
             />
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <FormField
+                <FormField
                 control={form.control}
                 name="job_type"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Job Type *</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Select job type" />
@@ -176,6 +202,22 @@ export function JobForm({ onSuccess, onCancel }: JobFormProps) {
                   </FormItem>
                 )}
               />
+
+              {showCustomJobType && (
+                <FormField
+                  control={form.control}
+                  name="custom_job_type"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Custom Job Type *</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Enter your job type" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
 
               <FormField
                 control={form.control}
@@ -249,7 +291,7 @@ export function JobForm({ onSuccess, onCancel }: JobFormProps) {
             <div className="flex gap-2 pt-4">
               <Button type="submit" disabled={isSubmitting} className="flex-1">
                 {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Create Job
+                {isEditing ? 'Update Job' : 'Create Job'}
               </Button>
               {onCancel && (
                 <Button type="button" variant="outline" onClick={onCancel}>

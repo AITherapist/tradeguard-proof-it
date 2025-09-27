@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
-import { MobileNav } from '@/components/navigation/MobileNav';
+import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { 
   Shield, 
   Plus, 
@@ -19,7 +19,8 @@ import {
   Clock,
   CheckCircle,
   AlertTriangle,
-  Briefcase
+  Briefcase,
+  RefreshCw
 } from 'lucide-react';
 
 interface Job {
@@ -193,59 +194,8 @@ export default function Dashboard() {
   const hasActiveAccess = subscription?.subscribed || subscription?.in_trial;
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <Shield className="h-8 w-8 text-primary" />
-              <div>
-                <h1 className="text-2xl font-bold text-primary">BLUHATCH</h1>
-                <p className="text-sm text-muted-foreground">Trade Protection Dashboard</p>
-              </div>
-            </div>
-            
-            <div className="flex items-center space-x-4">
-              <MobileNav />
-              <Badge variant={statusInfo.variant}>{statusInfo.text}</Badge>
-              
-              <div className="hidden md:flex items-center space-x-4">
-                <Button 
-                  variant="outline" 
-                  onClick={() => navigate('/jobs')}
-                >
-                  <Briefcase className="h-4 w-4 mr-2" />
-                  Jobs
-                </Button>
-                
-                {!hasActiveAccess && (
-                  <Button 
-                    onClick={handleCreateCheckout}
-                    disabled={isCreatingCheckout}
-                    className="bg-gradient-to-r from-primary to-primary-glow"
-                  >
-                    {isCreatingCheckout ? 'Loading...' : 'Subscribe £99/month'}
-                  </Button>
-                )}
-                
-                {subscription?.customer_id && (
-                  <Button variant="outline" onClick={handleManageSubscription}>
-                    <CreditCard className="h-4 w-4 mr-2" />
-                    Manage Billing
-                  </Button>
-                )}
-                
-                <Button variant="outline" onClick={signOut}>
-                  Sign Out
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      <div className="container mx-auto px-4 py-8">
+    <DashboardLayout>
+      <div className="container mx-auto px-6 py-8">
         {/* Welcome Section */}
         <div className="mb-8">
           <h2 className="text-3xl font-bold text-foreground mb-2">
@@ -448,6 +398,6 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
-    </div>
+    </DashboardLayout>
   );
 }
