@@ -7,6 +7,7 @@ import { GDPRCompliance } from '@/components/gdpr/GDPRCompliance';
 import { JobList } from '@/components/job/JobList';
 import { JobForm } from '@/components/job/JobForm';
 import { EvidenceCapture } from '@/components/evidence/EvidenceCapture';
+import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Plus, ArrowLeft, BarChart3, Shield, FileCheck, Settings } from 'lucide-react';
 
 type ViewMode = 'list' | 'create' | 'evidence' | 'detail' | 'approval' | 'analytics' | 'gdpr';
@@ -168,9 +169,11 @@ export default function Jobs() {
   };
 
   return (
-    <div className="container mx-auto p-4 max-w-6xl">
-      {renderHeader()}
-      {renderContent()}
-    </div>
+    <DashboardLayout>
+      <div className="container mx-auto px-6 py-8 max-w-6xl">
+        {renderHeader()}
+        {renderContent()}
+      </div>
+    </DashboardLayout>
   );
 }

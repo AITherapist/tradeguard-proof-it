@@ -22,6 +22,7 @@ import {
   Briefcase,
   RefreshCw
 } from 'lucide-react';
+import { RecentJobsCard } from '@/components/dashboard/RecentJobsCard';
 
 interface Job {
   id: string;
@@ -328,75 +329,12 @@ export default function Dashboard() {
           </Card>
         </div>
 
-        {/* Recent Jobs */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Recent Jobs</CardTitle>
-            <CardDescription>
-              Your latest trade jobs and their protection status
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {jobsLoading ? (
-              <div className="text-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-                <p className="text-muted-foreground mt-4">Loading jobs...</p>
-              </div>
-            ) : jobs.length === 0 ? (
-              <div className="text-center py-12">
-                <Shield className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-foreground mb-2">No jobs yet</h3>
-                <p className="text-muted-foreground mb-6">Start protecting your work by creating your first job</p>
-                <Button onClick={() => navigate('/jobs')}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Create First Job
-                </Button>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {jobs.slice(0, 5).map((job) => (
-                  <div key={job.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors">
-                    <div className="flex-1">
-                      <div className="flex items-center space-x-4">
-                        <div>
-                          <h4 className="font-semibold text-foreground">{job.client_name}</h4>
-                          <p className="text-sm text-muted-foreground">
-                            {job.job_type.replace('_', ' ')} • {job.client_address}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center space-x-4">
-                      <div className="text-right">
-                        <div className="flex items-center space-x-2">
-                          <span className="text-sm font-medium">
-                            {job.protection_status}% Protected
-                          </span>
-                          {job.protection_status >= 75 ? (
-                            <CheckCircle className="h-4 w-4 text-accent" />
-                          ) : job.protection_status >= 50 ? (
-                            <Clock className="h-4 w-4 text-warning" />
-                          ) : (
-                            <AlertTriangle className="h-4 w-4 text-destructive" />
-                          )}
-                        </div>
-                        <Progress 
-                          value={job.protection_status} 
-                          className="w-24 mt-1"
-                        />
-                      </div>
-                      
-                      <Button variant="outline" size="sm">
-                        View Details
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        {/* Enhanced Recent Jobs */}
+        <RecentJobsCard 
+          jobs={jobs}
+          isLoading={jobsLoading}
+          onJobsChange={loadJobs}
+        />
       </div>
     </DashboardLayout>
   );

@@ -12,8 +12,6 @@ import Evidence from "./pages/Evidence";
 import Analytics from "./pages/Analytics";
 import Reports from "./pages/Reports";
 import Settings from "./pages/Settings";
-import Profile from "./pages/settings/Profile";
-import Subscription from "./pages/settings/Subscription";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -48,8 +46,6 @@ const App = () => {
               <Route path="/analytics" element={<Analytics />} />
               <Route path="/reports" element={<Reports />} />
               <Route path="/settings" element={<Settings />} />
-              <Route path="/settings/profile" element={<Profile />} />
-              <Route path="/settings/subscription" element={<Subscription />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>

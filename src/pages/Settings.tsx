@@ -357,10 +357,20 @@ export default function Settings() {
                   )}
                 </div>
 
-                {/* Features */}
-                <div className="space-y-3">
-                  <h4 className="font-medium">Premium Features</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                {/* Premium Plan */}
+                <div className="border rounded-lg p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <h3 className="text-lg font-semibold">TradeGuard Pro</h3>
+                      <p className="text-sm text-muted-foreground">Professional evidence capture and documentation protection</p>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-2xl font-bold">£99</div>
+                      <div className="text-sm text-muted-foreground">per month</div>
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-4">
                     {[
                       'Unlimited evidence capture',
                       'Professional PDF reports',
@@ -376,6 +386,12 @@ export default function Settings() {
                         <span className="text-sm">{feature}</span>
                       </div>
                     ))}
+                  </div>
+                  
+                  <div className="text-center">
+                    <Badge variant="secondary" className="bg-accent/10 text-accent">
+                      7-day free trial included
+                    </Badge>
                   </div>
                 </div>
               </CardContent>
