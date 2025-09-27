@@ -130,27 +130,23 @@ export default function Reports() {
 
       if (error) throw error;
 
-      // Create blob and download
-      const byteCharacters = atob(data.pdf_data);
-      const byteNumbers = new Array(byteCharacters.length);
-      for (let i = 0; i < byteCharacters.length; i++) {
-        byteNumbers[i] = byteCharacters.charCodeAt(i);
+      if (data?.html_content) {
+        // Use the browser's print functionality to create PDF
+        const printWindow = window.open('', '_blank');
+        if (printWindow) {
+          printWindow.document.write(data.html_content);
+          printWindow.document.close();
+          
+          // Wait for content to load then trigger print
+          printWindow.onload = () => {
+            printWindow.print();
+          };
+        }
       }
-      const byteArray = new Uint8Array(byteNumbers);
-      const blob = new Blob([byteArray], { type: 'application/pdf' });
-      
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `Bluhatch-Report-${jobName.replace(/\s+/g, '_')}-${new Date().toISOString().split('T')[0]}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
 
       toast({
         title: 'Report Generated',
-        description: 'PDF report has been downloaded successfully'
+        description: 'PDF report has been generated successfully'
       });
 
       // Refresh reports list
@@ -168,7 +164,7 @@ export default function Reports() {
   };
 
   const downloadExistingReport = async (reportId: string, jobName: string) => {
-    // For existing reports, we'll regenerate them as PDF
+    // For existing reports, we'll regenerate them
     const report = reports.find(r => r.id === reportId);
     if (report) {
       await generateReport(report.job_id, jobName);

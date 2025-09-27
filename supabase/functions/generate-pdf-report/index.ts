@@ -257,30 +257,6 @@ function generateReportHTML(jobData: any, evidenceItems: any[], profile: any): s
   `.trim();
 }
 
-// Convert HTML to PDF using Puppeteer
-async function htmlToPdf(html: string): Promise<Uint8Array> {
-  try {
-    logStep("Starting PDF conversion");
-    
-    // Since we can't use Puppeteer in Deno, we'll use a different approach
-    // For now, we'll convert the HTML to a simple text-based PDF
-    // In production, you'd want to use a proper HTML-to-PDF service
-    
-    // Create a simple PDF-like response for demonstration
-    // This is a placeholder - in production use proper PDF generation
-    const encoder = new TextEncoder();
-    const pdfHeader = "%PDF-1.4\n";
-    const pdfContent = html.replace(/<[^>]*>/g, '\n').replace(/\n+/g, '\n');
-    const pdfFooter = "\n%%EOF";
-    
-    const fullPdf = pdfHeader + pdfContent + pdfFooter;
-    return encoder.encode(fullPdf);
-  } catch (error: any) {
-    logStep("Error converting HTML to PDF", { error: error?.message || 'Unknown error' });
-    throw error;
-  }
-}
-
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -351,13 +327,6 @@ serve(async (req) => {
     const reportHTML = generateReportHTML(jobData, evidenceItems || [], profile);
     logStep("Report HTML generated", { length: reportHTML.length });
 
-    // Convert HTML to PDF (simplified for demo)
-    const pdfBuffer = await htmlToPdf(reportHTML);
-    logStep("PDF generated", { size: pdfBuffer.length });
-
-    // Convert to base64 for JSON response
-    const base64Pdf = btoa(String.fromCharCode(...pdfBuffer));
-
     // Log audit trail
     await supabaseClient
       .from('audit_logs')
@@ -368,7 +337,7 @@ serve(async (req) => {
         details: {
           evidence_count: evidenceItems?.length || 0,
           protection_status: jobData.protection_status,
-          pdf_size: pdfBuffer.length,
+          html_size: reportHTML.length,
         },
         ip_address: req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip'),
         user_agent: req.headers.get('user-agent'),
@@ -376,7 +345,7 @@ serve(async (req) => {
 
     return new Response(JSON.stringify({ 
       success: true,
-      pdf_data: base64Pdf,
+      html_content: reportHTML, // Provide HTML for frontend PDF conversion
       filename: `Bluhatch-Report-${jobData.client_name.replace(/\s+/g, '_')}-${new Date().toISOString().split('T')[0]}.pdf`
     }), {
       headers: { 
@@ -386,7 +355,7 @@ serve(async (req) => {
       status: 200,
     });
 
-  } catch (error) {
+  } catch (error: any) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     logStep("ERROR in generate-pdf-report", { message: errorMessage });
     return new Response(JSON.stringify({ error: errorMessage }), {
