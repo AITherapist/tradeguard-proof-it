@@ -8,22 +8,8 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
-import { 
-  Shield, 
-  Plus, 
-  FileText, 
-  Camera, 
-  CreditCard, 
-  Settings,
-  TrendingUp,
-  Clock,
-  CheckCircle,
-  AlertTriangle,
-  Briefcase,
-  RefreshCw
-} from 'lucide-react';
+import { Shield, Plus, FileText, Camera, CreditCard, Settings, TrendingUp, Clock, CheckCircle, AlertTriangle, Briefcase, RefreshCw } from 'lucide-react';
 import { RecentJobsCard } from '@/components/dashboard/RecentJobsCard';
-
 interface Job {
   id: string;
   client_name: string;
@@ -36,33 +22,39 @@ interface Job {
   protection_status: number;
   created_at: string;
 }
-
 interface Profile {
   company_name?: string;
   subscription_status: string;
   trial_ends_at?: string;
 }
-
 export default function Dashboard() {
-  const { user, session, loading, subscription, subscriptionLoading, signOut, checkSubscription } = useAuth();
+  const {
+    user,
+    session,
+    loading,
+    subscription,
+    subscriptionLoading,
+    signOut,
+    checkSubscription
+  } = useAuth();
   const [jobs, setJobs] = useState<Job[]>([]);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [jobsLoading, setJobsLoading] = useState(true);
   const [isCreatingCheckout, setIsCreatingCheckout] = useState(false);
-  const { toast } = useToast();
+  const {
+    toast
+  } = useToast();
   const navigate = useNavigate();
-
   const loadJobs = async () => {
     if (!user) return;
-    
     setJobsLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('jobs')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
-
+      const {
+        data,
+        error
+      } = await supabase.from('jobs').select('*').eq('user_id', user.id).order('created_at', {
+        ascending: false
+      });
       if (error) throw error;
       setJobs(data || []);
     } catch (error: any) {
@@ -70,30 +62,25 @@ export default function Dashboard() {
       toast({
         title: "Error loading jobs",
         description: error.message,
-        variant: "destructive",
+        variant: "destructive"
       });
     } finally {
       setJobsLoading(false);
     }
   };
-
   const loadProfile = async () => {
     if (!user) return;
-    
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('user_id', user.id)
-        .single();
-
+      const {
+        data,
+        error
+      } = await supabase.from('profiles').select('*').eq('user_id', user.id).single();
       if (error) throw error;
       setProfile(data);
     } catch (error: any) {
       console.error('Error loading profile:', error);
     }
   };
-
   useEffect(() => {
     if (user) {
       loadJobs();
@@ -108,29 +95,26 @@ export default function Dashboard() {
 
   // Loading state
   if (loading || !user) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
+    return <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-      </div>
-    );
+      </div>;
   }
-
   const handleCreateCheckout = async () => {
     if (!session) return;
-    
     setIsCreatingCheckout(true);
     try {
-      const { data, error } = await supabase.functions.invoke('create-checkout', {
+      const {
+        data,
+        error
+      } = await supabase.functions.invoke('create-checkout', {
         headers: {
-          Authorization: `Bearer ${session.access_token}`,
-        },
+          Authorization: `Bearer ${session.access_token}`
+        }
       });
-
       if (error) throw error;
-
       if (data.url) {
         window.open(data.url, '_blank');
-        
+
         // Refresh subscription status after a delay
         setTimeout(() => {
           checkSubscription();
@@ -143,25 +127,24 @@ export default function Dashboard() {
       toast({
         title: "Checkout Error",
         description: error.message || 'Failed to create checkout session',
-        variant: "destructive",
+        variant: "destructive"
       });
     } finally {
       setIsCreatingCheckout(false);
     }
   };
-
   const handleManageSubscription = async () => {
     if (!session) return;
-    
     try {
-      const { data, error } = await supabase.functions.invoke('customer-portal', {
+      const {
+        data,
+        error
+      } = await supabase.functions.invoke('customer-portal', {
         headers: {
-          Authorization: `Bearer ${session.access_token}`,
-        },
+          Authorization: `Bearer ${session.access_token}`
+        }
       });
-
       if (error) throw error;
-
       if (data.url) {
         window.open(data.url, '_blank');
       }
@@ -170,32 +153,39 @@ export default function Dashboard() {
       toast({
         title: "Error",
         description: error.message || 'Failed to open customer portal',
-        variant: "destructive",
+        variant: "destructive"
       });
     }
   };
-
   const getSubscriptionStatus = () => {
-    if (subscriptionLoading) return { text: 'Checking...', variant: 'secondary' as const };
-    
-    if (!subscription) return { text: 'No subscription', variant: 'destructive' as const };
-    
+    if (subscriptionLoading) return {
+      text: 'Checking...',
+      variant: 'secondary' as const
+    };
+    if (!subscription) return {
+      text: 'No subscription',
+      variant: 'destructive' as const
+    };
     if (subscription.in_trial) {
-      return { text: '7-Day Free Trial', variant: 'secondary' as const };
+      return {
+        text: '7-Day Free Trial',
+        variant: 'secondary' as const
+      };
     }
-    
     if (subscription.subscribed) {
-      return { text: 'Pro Subscription', variant: 'default' as const };
+      return {
+        text: 'Pro Subscription',
+        variant: 'default' as const
+      };
     }
-    
-    return { text: 'Subscription Expired', variant: 'destructive' as const };
+    return {
+      text: 'Subscription Expired',
+      variant: 'destructive' as const
+    };
   };
-
   const statusInfo = getSubscriptionStatus();
   const hasActiveAccess = subscription?.subscribed || subscription?.in_trial;
-
-  return (
-    <DashboardLayout>
+  return <DashboardLayout>
       <div className="container mx-auto px-6 py-8">
         {/* Welcome Section */}
         <div className="mb-8">
@@ -203,16 +193,12 @@ export default function Dashboard() {
             Welcome back{profile?.company_name ? `, ${profile.company_name}` : ''}!
           </h2>
           <p className="text-muted-foreground">
-            {hasActiveAccess 
-              ? 'Your trade protection is active. Start documenting your work.'
-              : 'Subscribe to start protecting your trade work with professional evidence capture.'
-            }
+            {hasActiveAccess ? 'Your trade protection is active. Start documenting your work.' : 'Subscribe to start protecting your trade work with professional evidence capture.'}
           </p>
         </div>
 
         {/* Subscription Status Card */}
-        {subscription && subscription.subscription_end && (
-          <Card className="mb-8 border-primary/20">
+        {subscription && subscription.subscription_end && <Card className="mb-8 border-primary/20">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-4">
@@ -222,10 +208,7 @@ export default function Dashboard() {
                   <div>
                     <h3 className="font-semibold text-foreground">Protection Status</h3>
                     <p className="text-muted-foreground">
-                      {subscription.in_trial 
-                        ? `Trial active until ${new Date(subscription.subscription_end).toLocaleDateString()}`
-                        : `Subscription active until ${new Date(subscription.subscription_end).toLocaleDateString()}`
-                      }
+                      {subscription.in_trial ? `Trial active until ${new Date(subscription.subscription_end).toLocaleDateString()}` : `Subscription active until ${new Date(subscription.subscription_end).toLocaleDateString()}`}
                     </p>
                   </div>
                 </div>
@@ -234,8 +217,7 @@ export default function Dashboard() {
                 </Badge>
               </div>
             </CardContent>
-          </Card>
-        )}
+          </Card>}
 
         {/* Stats Grid */}
         <div className="grid md:grid-cols-4 gap-6 mb-8">
@@ -265,10 +247,7 @@ export default function Dashboard() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-foreground">
-                {jobs.length > 0 
-                  ? Math.round(jobs.reduce((sum, job) => sum + job.protection_status, 0) / jobs.length)
-                  : 0
-                }%
+                {jobs.length > 0 ? Math.round(jobs.reduce((sum, job) => sum + job.protection_status, 0) / jobs.length) : 0}%
               </div>
             </CardContent>
           </Card>
@@ -280,11 +259,10 @@ export default function Dashboard() {
             <CardContent>
               <div className="text-2xl font-bold text-primary">
                 {jobs.filter(job => {
-                  const jobDate = new Date(job.created_at);
-                  const thisMonth = new Date();
-                  return jobDate.getMonth() === thisMonth.getMonth() && 
-                         jobDate.getFullYear() === thisMonth.getFullYear();
-                }).length}
+                const jobDate = new Date(job.created_at);
+                const thisMonth = new Date();
+                return jobDate.getMonth() === thisMonth.getMonth() && jobDate.getFullYear() === thisMonth.getFullYear();
+              }).length}
               </div>
             </CardContent>
           </Card>
@@ -292,10 +270,7 @@ export default function Dashboard() {
 
         {/* Quick Actions */}
         <div className="grid md:grid-cols-3 gap-6 mb-8">
-          <Card 
-            className="cursor-pointer hover:shadow-lg transition-shadow"
-            onClick={() => navigate('/jobs')}
-          >
+          <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => navigate('/jobs')}>
             <CardHeader>
               <CardTitle className="flex items-center space-x-2">
                 <Plus className="h-5 w-5 text-primary" />
@@ -305,10 +280,7 @@ export default function Dashboard() {
             </CardHeader>
           </Card>
           
-          <Card 
-            className="cursor-pointer hover:shadow-lg transition-shadow"
-            onClick={() => navigate('/jobs')}
-          >
+          <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => navigate('/jobs')}>
             <CardHeader>
               <CardTitle className="flex items-center space-x-2">
                 <Camera className="h-5 w-5 text-accent" />
@@ -330,12 +302,7 @@ export default function Dashboard() {
         </div>
 
         {/* Enhanced Recent Jobs */}
-        <RecentJobsCard 
-          jobs={jobs}
-          isLoading={jobsLoading}
-          onJobsChange={loadJobs}
-        />
+        <RecentJobsCard jobs={jobs} isLoading={jobsLoading} onJobsChange={loadJobs} />
       </div>
-    </DashboardLayout>
-  );
+    </DashboardLayout>;
 }
