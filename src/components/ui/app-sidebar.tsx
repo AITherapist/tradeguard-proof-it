@@ -77,9 +77,7 @@ export function AppSidebar() {
         </div>
 
         {/* Main Navigation */}
-        <SidebarGroup
-          open={isMainGroupExpanded}
-        >
+        <SidebarGroup>
           <SidebarGroupLabel className={collapsed ? "sr-only" : ""}>
             Main
           </SidebarGroupLabel>
@@ -100,9 +98,7 @@ export function AppSidebar() {
         </SidebarGroup>
 
         {/* Settings Navigation */}
-        <SidebarGroup
-          open={isSettingsGroupExpanded}
-        >
+        <SidebarGroup>
           <SidebarGroupLabel className={collapsed ? "sr-only" : ""}>
             Settings
           </SidebarGroupLabel>

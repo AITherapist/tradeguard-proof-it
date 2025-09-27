@@ -306,12 +306,12 @@ export default function Settings() {
                     <h3 className="font-semibold">Current Plan</h3>
                     <p className="text-sm text-muted-foreground">
                       {subscription?.subscribed ? 'Premium Plan' : 
-                       subscription?.subscription_status === 'trial' ? 'Free Trial' : 'No Subscription'}
+                       subscription?.in_trial ? 'Free Trial' : 'No Subscription'}
                     </p>
                   </div>
                   <Badge variant={subscription?.subscribed ? 'default' : 'secondary'}>
                     {subscription?.subscribed ? 'ACTIVE' : 
-                     subscription?.subscription_status === 'trial' ? 'TRIAL' : 'INACTIVE'}
+                     subscription?.in_trial ? 'TRIAL' : 'INACTIVE'}
                   </Badge>
                 </div>
 
@@ -322,12 +322,12 @@ export default function Settings() {
                       <div>
                         <Label className="text-sm font-medium">Status</Label>
                         <p className="text-sm text-muted-foreground capitalize">
-                          {subscription.subscription_status}
+                          {subscription.subscribed ? 'Active' : subscription.in_trial ? 'Trial' : 'Inactive'}
                         </p>
                       </div>
                       <div>
                         <Label className="text-sm font-medium">
-                          {subscription.subscription_status === 'trial' ? 'Trial Ends' : 'Next Billing'}
+                          {subscription.in_trial ? 'Trial Ends' : 'Next Billing'}
                         </Label>
                         <p className="text-sm text-muted-foreground">
                           {subscription.subscription_end 
