@@ -34,7 +34,6 @@ const navItems = [
   { title: "Dashboard", url: "/dashboard", icon: Home },
   { title: "Jobs", url: "/jobs", icon: Briefcase },
   { title: "Analytics", url: "/analytics", icon: BarChart3 },
-  { title: "Evidence", url: "/evidence", icon: Camera },
   { title: "Reports", url: "/reports", icon: FileText },
   { title: "Settings", url: "/settings", icon: Settings },
 ];
