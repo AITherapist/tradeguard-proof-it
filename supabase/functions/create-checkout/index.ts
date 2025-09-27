@@ -40,6 +40,11 @@ serve(async (req) => {
     if (!user?.email) throw new Error("User not authenticated or email not available");
     logStep("User authenticated", { userId: user.id, email: user.email });
 
+    // Parse request body for plan selection
+    const body = await req.json().catch(() => ({}));
+    const isAnnual = body.annual === true;
+    logStep("Plan selection", { isAnnual });
+
     const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
     
     // Check for existing customer
@@ -81,22 +86,29 @@ serve(async (req) => {
     const hasExistingSubscription = allSubscriptions.data.length > 0;
     logStep("Checked existing subscriptions", { hasExisting: hasExistingSubscription, count: allSubscriptions.data.length });
 
+    // Select the appropriate price based on plan
+    const priceId = isAnnual 
+      ? "price_1SBymtRqqnu3hH3nc8A4csgl" // Annual plan
+      : "price_1SAJGgRqqnu3hH3n6vJIu2MP"; // Monthly plan
+    
+    logStep("Creating checkout session", { priceId, isAnnual });
+
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
       customer_email: customerId ? undefined : user.email,
       line_items: [
         {
-          price: 'price_1SBu8tRqqnu3hH3ngK6IVGsv', // TradeGuard Pro monthly subscription
+          price: priceId,
           quantity: 1,
         },
       ],
       mode: "subscription",
-      // Only add trial for first-time users
-      subscription_data: hasExistingSubscription ? undefined : {
+      // Only add trial for first-time users and monthly plans
+      subscription_data: (hasExistingSubscription || isAnnual) ? undefined : {
         trial_period_days: 7,
       },
       success_url: `${origin}/settings?success=true&tab=billing`,
-      cancel_url: `${origin}/settings?canceled=true`,
+      cancel_url: `${origin}/settings?canceled=true&tab=subscription`,
       allow_promotion_codes: true,
     });
 

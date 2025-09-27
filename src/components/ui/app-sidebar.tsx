@@ -39,9 +39,7 @@ const mainNavItems = [
 ];
 
 const settingsNavItems = [
-  { title: "Profile", url: "/settings/profile", icon: User },
-  { title: "Subscription", url: "/settings/subscription", icon: CreditCard },
-  { title: "General", url: "/settings", icon: Settings },
+  { title: "Settings", url: "/settings", icon: Settings },
 ];
 
 export function AppSidebar() {

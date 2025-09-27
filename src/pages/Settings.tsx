@@ -8,12 +8,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
-import { User, CreditCard, Shield, Bell, Download, Settings as SettingsIcon, RefreshCw, ExternalLink, Check, X, FileText } from 'lucide-react';
+import { User, CreditCard, Shield, Bell, Download, Settings as SettingsIcon, RefreshCw, ExternalLink, Check, X, FileText, Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
 import { GDPRCompliance } from '@/components/gdpr/GDPRCompliance';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 export default function Settings() {
   const {
     user,
@@ -25,6 +26,8 @@ export default function Settings() {
   const [profile, setProfile] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const [formData, setFormData] = useState({
     company_name: '',
     phone: '',
@@ -134,14 +137,12 @@ export default function Settings() {
       });
     }
   };
-  const handleCreateCheckout = async () => {
+  const handleCreateCheckout = async (isAnnual = false) => {
     if (!session) return;
     setIsLoading(true);
     try {
-      const {
-        data,
-        error
-      } = await supabase.functions.invoke('create-checkout', {
+      const { data, error } = await supabase.functions.invoke('create-checkout', {
+        body: { annual: isAnnual },
         headers: {
           Authorization: `Bearer ${session.access_token}`
         }
@@ -164,6 +165,73 @@ export default function Settings() {
       setIsLoading(false);
     }
   };
+
+  const handleCancelSubscription = async () => {
+    if (!session) return;
+    setIsCancelling(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('cancel-subscription', {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`
+        }
+      });
+      if (error) throw error;
+      toast({
+        title: 'Subscription Cancelled',
+        description: 'Your subscription will be cancelled at the end of the current billing period.'
+      });
+      setTimeout(() => {
+        handleRefreshSubscription();
+      }, 1000);
+    } catch (error: any) {
+      console.error('Error cancelling subscription:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to cancel subscription',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsCancelling(false);
+    }
+  };
+
+  const handleExportData = async () => {
+    if (!session) return;
+    setIsExporting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('export-data', {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`
+        }
+      });
+      if (error) throw error;
+      
+      // Create and download the file
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `tradeguard-data-export-${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      toast({
+        title: 'Data Exported',
+        description: 'Your data has been successfully exported and downloaded.'
+      });
+    } catch (error: any) {
+      console.error('Error exporting data:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to export data',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsExporting(false);
+    }
+  };
   return <DashboardLayout>
       <div className="container mx-auto px-6 py-8 max-w-4xl">
         <div className="mb-8">
@@ -174,7 +242,7 @@ export default function Settings() {
         </div>
 
         <Tabs defaultValue="profile" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-6">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="profile" className="flex items-center gap-2">
               <User className="h-4 w-4" />
               Profile
@@ -190,10 +258,6 @@ export default function Settings() {
             <TabsTrigger value="security" className="flex items-center gap-2">
               <Shield className="h-4 w-4" />
               Security
-            </TabsTrigger>
-            <TabsTrigger value="gdpr" className="flex items-center gap-2">
-              <FileText className="h-4 w-4" />
-              GDPR
             </TabsTrigger>
             <TabsTrigger value="notifications" className="flex items-center gap-2">
               <Bell className="h-4 w-4" />
@@ -306,13 +370,51 @@ export default function Settings() {
 
                 <Separator />
 
-                {/* Upgrade Action */}
+                {/* Upgrade Actions */}
                 {!subscription?.subscribed && (
-                  <div className="text-center">
-                    <Button onClick={handleCreateCheckout} disabled={isLoading} size="lg">
-                      <CreditCard className="h-4 w-4 mr-2" />
-                      {subscription?.in_trial ? 'Upgrade to Premium (£99/month)' : 'Start Free Trial'}
-                    </Button>
+                  <div className="space-y-4">
+                    <div className="text-center space-y-3">
+                      <Button onClick={() => handleCreateCheckout(false)} disabled={isLoading} size="lg" className="w-full">
+                        <CreditCard className="h-4 w-4 mr-2" />
+                        {subscription?.in_trial ? 'Upgrade to Premium (£99/month)' : 'Start Free Trial'}
+                      </Button>
+                      <div className="text-sm text-muted-foreground">or</div>
+                      <Button onClick={() => handleCreateCheckout(true)} disabled={isLoading} variant="outline" size="lg" className="w-full">
+                        <CreditCard className="h-4 w-4 mr-2" />
+                        Annual Plan - £100.98/year (15% off!)
+                      </Button>
+                      <p className="text-xs text-muted-foreground">
+                        Annual plan saves you £87.02 per year
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Cancel Subscription */}
+                {subscription?.subscribed && (
+                  <div className="text-center pt-4 border-t">
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="destructive" size="sm" disabled={isCancelling}>
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Cancel Subscription
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Cancel Subscription</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Are you sure you want to cancel your subscription? You will continue to have access until the end of your current billing period, and your subscription will not auto-renew.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Keep Subscription</AlertDialogCancel>
+                          <AlertDialogAction onClick={handleCancelSubscription} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                            Yes, Cancel
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                   </div>
                 )}
 
@@ -393,10 +495,16 @@ export default function Settings() {
                     <p className="text-sm text-muted-foreground mb-4">
                       Subscribe to Premium to access billing management features.
                     </p>
-                    <Button onClick={handleCreateCheckout} disabled={isLoading}>
-                      <CreditCard className="h-4 w-4 mr-2" />
-                      Subscribe to Premium
-                    </Button>
+                    <div className="space-y-3">
+                      <Button onClick={() => handleCreateCheckout(false)} disabled={isLoading} className="w-full">
+                        <CreditCard className="h-4 w-4 mr-2" />
+                        Subscribe to Premium - £99/month
+                      </Button>
+                      <Button onClick={() => handleCreateCheckout(true)} disabled={isLoading} variant="outline" className="w-full">
+                        <CreditCard className="h-4 w-4 mr-2" />
+                        Annual Plan - £100.98/year (15% off!)
+                      </Button>
+                    </div>
                   </div>
                 )}
               </CardContent>
@@ -415,20 +523,6 @@ export default function Settings() {
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h4 className="font-medium">Two-Factor Authentication</h4>
-                      <p className="text-sm text-muted-foreground">
-                        Add an extra layer of security to your account
-                      </p>
-                    </div>
-                    <Button variant="outline" size="sm">
-                      Enable 2FA
-                    </Button>
-                  </div>
-                  
-                  <Separator />
-                  
-                  <div className="flex items-center justify-between">
-                    <div>
                       <h4 className="font-medium">Change Password</h4>
                       <p className="text-sm text-muted-foreground">
                         Update your account password
@@ -445,12 +539,21 @@ export default function Settings() {
                     <div>
                       <h4 className="font-medium">Data Export</h4>
                       <p className="text-sm text-muted-foreground">
-                        Download all your account data
+                        Download all your account data in JSON format
                       </p>
                     </div>
-                    <Button variant="outline" size="sm">
-                      <Download className="h-4 w-4 mr-2" />
-                      Export Data
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={handleExportData}
+                      disabled={isExporting}
+                    >
+                      {isExporting ? (
+                        <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <Download className="h-4 w-4 mr-2" />
+                      )}
+                      {isExporting ? 'Exporting...' : 'Export Data'}
                     </Button>
                   </div>
                 </div>
@@ -518,9 +621,6 @@ export default function Settings() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="gdpr" className="space-y-6">
-            <GDPRCompliance />
-          </TabsContent>
         </Tabs>
       </div>
     </DashboardLayout>;
