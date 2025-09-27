@@ -60,7 +60,7 @@ serve(async (req) => {
         logStep("Active subscription found, redirecting to portal");
         const portalSession = await stripe.billingPortal.sessions.create({
           customer: customerId,
-          return_url: `${req.headers.get("origin") || "http://localhost:3000"}/dashboard`,
+          return_url: `${req.headers.get("origin") || "http://localhost:3000"}/settings?tab=billing`,
         });
         
         return new Response(JSON.stringify({ url: portalSession.url }), {
@@ -72,6 +72,15 @@ serve(async (req) => {
 
     const origin = req.headers.get("origin") || "http://localhost:3000";
     
+    // Check if user already has any subscriptions (including canceled/trialing)
+    const allSubscriptions = await stripe.subscriptions.list({
+      customer: customerId,
+      limit: 100,
+    });
+    
+    const hasExistingSubscription = allSubscriptions.data.length > 0;
+    logStep("Checked existing subscriptions", { hasExisting: hasExistingSubscription, count: allSubscriptions.data.length });
+
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
       customer_email: customerId ? undefined : user.email,
@@ -82,10 +91,11 @@ serve(async (req) => {
         },
       ],
       mode: "subscription",
-      subscription_data: {
+      // Only add trial for first-time users
+      subscription_data: hasExistingSubscription ? undefined : {
         trial_period_days: 7,
       },
-      success_url: `${origin}/settings?success=true`,
+      success_url: `${origin}/settings?success=true&tab=billing`,
       cancel_url: `${origin}/settings?canceled=true`,
       allow_promotion_codes: true,
     });

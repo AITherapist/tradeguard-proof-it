@@ -174,7 +174,7 @@ export default function Settings() {
         </div>
 
         <Tabs defaultValue="profile" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="profile" className="flex items-center gap-2">
               <User className="h-4 w-4" />
               Profile
@@ -182,6 +182,10 @@ export default function Settings() {
             <TabsTrigger value="subscription" className="flex items-center gap-2">
               <CreditCard className="h-4 w-4" />
               Subscription
+            </TabsTrigger>
+            <TabsTrigger value="billing" className="flex items-center gap-2">
+              <SettingsIcon className="h-4 w-4" />
+              Billing
             </TabsTrigger>
             <TabsTrigger value="security" className="flex items-center gap-2">
               <Shield className="h-4 w-4" />
@@ -256,14 +260,14 @@ export default function Settings() {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center justify-between">
-                  Subscription Management
+                  Subscription Overview
                   <Button variant="outline" size="sm" onClick={handleRefreshSubscription} disabled={isRefreshing}>
                     <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
                     Refresh
                   </Button>
                 </CardTitle>
                 <CardDescription>
-                  Manage your subscription and billing information
+                  View your current subscription status and manage your plan
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
@@ -302,28 +306,21 @@ export default function Settings() {
 
                 <Separator />
 
-                {/* Action Buttons */}
-                <div className="flex flex-col sm:flex-row gap-3">
-                  {!subscription?.subscribed ? <Button onClick={handleCreateCheckout} disabled={isLoading}>
+                {/* Upgrade Action */}
+                {!subscription?.subscribed && (
+                  <div className="text-center">
+                    <Button onClick={handleCreateCheckout} disabled={isLoading} size="lg">
                       <CreditCard className="h-4 w-4 mr-2" />
-                      Subscribe to Premium
-                    </Button> : <div className="flex gap-3">
-                      <Button onClick={handleManageBilling} variant="outline">
-                        <ExternalLink className="h-4 w-4 mr-2" />
-                        Manage Billing
-                      </Button>
-                      <Button onClick={handleManageBilling} variant="outline">
-                        <SettingsIcon className="h-4 w-4 mr-2" />
-                        Update Billing Details
-                      </Button>
-                    </div>}
-                </div>
+                      {subscription?.in_trial ? 'Upgrade to Premium (£99/month)' : 'Start Free Trial'}
+                    </Button>
+                  </div>
+                )}
 
-                {/* Premium Plan */}
+                {/* Premium Plan Features */}
                 <div className="border rounded-lg p-6">
                   <div className="flex items-center justify-between mb-4">
                     <div>
-                      <h3 className="text-lg font-semibold">Protect Your Business</h3>
+                      <h3 className="text-lg font-semibold">TradeGuard Pro</h3>
                       <p className="text-sm text-muted-foreground">Professional evidence capture and documentation protection</p>
                     </div>
                     <div className="text-right">
@@ -345,6 +342,63 @@ export default function Settings() {
                     </Badge>
                   </div>
                 </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="billing" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Billing Management</CardTitle>
+                <CardDescription>
+                  Manage your billing information and payment methods
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {subscription?.subscribed ? (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between p-4 border rounded-lg">
+                      <div>
+                        <h3 className="font-semibold">Active Subscription</h3>
+                        <p className="text-sm text-muted-foreground">
+                          TradeGuard Pro - £99.00/month
+                        </p>
+                      </div>
+                      <Badge variant="default">ACTIVE</Badge>
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row gap-3">
+                      <Button onClick={handleManageBilling} variant="outline">
+                        <ExternalLink className="h-4 w-4 mr-2" />
+                        Manage Subscription
+                      </Button>
+                      <Button onClick={handleManageBilling} variant="outline">
+                        <SettingsIcon className="h-4 w-4 mr-2" />
+                        Update Payment Method
+                      </Button>
+                    </div>
+
+                    <Separator />
+
+                    <div className="space-y-2">
+                      <h4 className="font-medium">Billing Information</h4>
+                      <p className="text-sm text-muted-foreground">
+                        Access your billing portal to view invoices, update payment methods, and manage your subscription.
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <h3 className="font-semibold mb-2">No Active Subscription</h3>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Subscribe to Premium to access billing management features.
+                    </p>
+                    <Button onClick={handleCreateCheckout} disabled={isLoading}>
+                      <CreditCard className="h-4 w-4 mr-2" />
+                      Subscribe to Premium
+                    </Button>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
