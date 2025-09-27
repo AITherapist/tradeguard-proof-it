@@ -42,13 +42,19 @@ serve(async (req) => {
     if (!user?.email) throw new Error("User not authenticated or email not available");
     logStep("User authenticated", { userId: user.id, email: user.email });
 
-    // Update profile with latest auth data
-    await supabaseClient
+    // Ensure profile exists (handle the case where profile already exists)
+    const { error: profileError } = await supabaseClient
       .from('profiles')
       .upsert({
         user_id: user.id,
         updated_at: new Date().toISOString(),
+      }, {
+        onConflict: 'user_id'
       });
+    
+    if (profileError) {
+      logStep("Profile update error (continuing)", { error: profileError.message });
+    }
 
     const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
     const customers = await stripe.customers.list({ email: user.email, limit: 1 });
@@ -99,7 +105,7 @@ serve(async (req) => {
       logStep("Determined subscription tier", { productId });
 
       // Update profile with subscription data
-      await supabaseClient
+      const { error: updateError } = await supabaseClient
         .from('profiles')
         .update({
           subscription_status: 'active',
@@ -108,6 +114,10 @@ serve(async (req) => {
           updated_at: new Date().toISOString(),
         })
         .eq('user_id', user.id);
+      
+      if (updateError) {
+        logStep("Profile update error (continuing)", { error: updateError.message });
+      }
     } else {
       logStep("No active subscription found");
       
@@ -126,14 +136,18 @@ serve(async (req) => {
       }
 
       // Update profile
-      await supabaseClient
+      const { error: profileUpdateError } = await supabaseClient
         .from('profiles')
         .update({
-          subscription_status: trialSubs.data.length > 0 ? 'trialing' : 'inactive',
+          subscription_status: trialSubs.data.length > 0 ? 'trialing' : 'trial',
           customer_id: customerId,
           updated_at: new Date().toISOString(),
         })
         .eq('user_id', user.id);
+      
+      if (profileUpdateError) {
+        logStep("Profile update error (continuing)", { error: profileUpdateError.message });
+      }
     }
 
     return new Response(JSON.stringify({

@@ -314,6 +314,7 @@ export type Database = {
         | "past_due"
         | "cancelled"
         | "incomplete"
+        | "trialing"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -468,6 +469,7 @@ export const Constants = {
         "past_due",
         "cancelled",
         "incomplete",
+        "trialing",
       ],
     },
   },
