@@ -18,12 +18,14 @@ import {
   RefreshCw,
   ExternalLink,
   Check,
-  X
+  X,
+  FileText
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
+import { GDPRCompliance } from '@/components/gdpr/GDPRCompliance';
 
 export default function Settings() {
   const { user, loading, session, subscription, checkSubscription } = useAuth();
@@ -195,7 +197,7 @@ export default function Settings() {
         </div>
 
         <Tabs defaultValue="profile" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="profile" className="flex items-center gap-2">
               <User className="h-4 w-4" />
               Profile
@@ -207,6 +209,10 @@ export default function Settings() {
             <TabsTrigger value="security" className="flex items-center gap-2">
               <Shield className="h-4 w-4" />
               Security
+            </TabsTrigger>
+            <TabsTrigger value="gdpr" className="flex items-center gap-2">
+              <FileText className="h-4 w-4" />
+              GDPR
             </TabsTrigger>
             <TabsTrigger value="notifications" className="flex items-center gap-2">
               <Bell className="h-4 w-4" />
@@ -511,6 +517,10 @@ export default function Settings() {
                 </div>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="gdpr" className="space-y-6">
+            <GDPRCompliance />
           </TabsContent>
         </Tabs>
       </div>

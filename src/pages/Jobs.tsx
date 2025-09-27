@@ -2,14 +2,13 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { JobDetailView } from '@/components/job/JobDetailView';
 import { ApprovalWorkflow } from '@/components/approval/ApprovalWorkflow';
-import { GDPRCompliance } from '@/components/gdpr/GDPRCompliance';
 import { JobList } from '@/components/job/JobList';
 import { JobForm } from '@/components/job/JobForm';
 import { EvidenceCapture } from '@/components/evidence/EvidenceCapture';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
-import { Plus, ArrowLeft, Shield } from 'lucide-react';
+import { Plus, ArrowLeft } from 'lucide-react';
 
-type ViewMode = 'list' | 'create' | 'evidence' | 'detail' | 'approval' | 'gdpr';
+type ViewMode = 'list' | 'create' | 'evidence' | 'detail' | 'approval';
 
 export default function Jobs() {
   const [viewMode, setViewMode] = useState<ViewMode>('list');
@@ -77,15 +76,6 @@ export default function Jobs() {
             </Button>
           </div>
         );
-      case 'gdpr':
-        return (
-          <div className="flex items-center gap-4 mb-6">
-            <Button variant="ghost" size="sm" onClick={() => setViewMode('list')}>
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Jobs
-            </Button>
-          </div>
-        );
       default:
         return (
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
@@ -96,10 +86,6 @@ export default function Jobs() {
               </p>
             </div>
             <div className="flex flex-col sm:flex-row gap-2">
-              <Button variant="outline" onClick={() => setViewMode('gdpr')}>
-                <Shield className="h-4 w-4 mr-2" />
-                Data Protection
-              </Button>
               <Button onClick={() => setViewMode('create')}>
                 <Plus className="h-4 w-4 mr-2" />
                 New Job
@@ -140,8 +126,6 @@ export default function Jobs() {
             jobId={selectedJobId}
           />
         ) : null;
-      case 'gdpr':
-        return <GDPRCompliance />;
       default:
         return (
           <JobList
