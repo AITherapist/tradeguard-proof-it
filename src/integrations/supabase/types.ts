@@ -132,6 +132,7 @@ export type Database = {
           completion_date: string | null
           contract_value: number | null
           created_at: string
+          custom_job_type: string | null
           id: string
           job_description: string | null
           job_type: Database["public"]["Enums"]["job_type"]
@@ -147,6 +148,7 @@ export type Database = {
           completion_date?: string | null
           contract_value?: number | null
           created_at?: string
+          custom_job_type?: string | null
           id?: string
           job_description?: string | null
           job_type: Database["public"]["Enums"]["job_type"]
@@ -162,6 +164,7 @@ export type Database = {
           completion_date?: string | null
           contract_value?: number | null
           created_at?: string
+          custom_job_type?: string | null
           id?: string
           job_description?: string | null
           job_type?: Database["public"]["Enums"]["job_type"]
