@@ -11,7 +11,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2, Plus } from 'lucide-react';
-
 const jobSchema = z.object({
   client_name: z.string().min(1, 'Client name is required').max(100),
   client_phone: z.string().optional(),
@@ -21,23 +20,26 @@ const jobSchema = z.object({
   job_description: z.string().max(1000).optional(),
   contract_value: z.number().min(0).optional(),
   start_date: z.string().optional(),
-  completion_date: z.string().optional(),
+  completion_date: z.string().optional()
 });
-
 type JobFormData = z.infer<typeof jobSchema>;
-
 interface JobFormProps {
   onSuccess?: () => void;
   onCancel?: () => void;
   jobData?: any;
   isEditing?: boolean;
 }
-
-export function JobForm({ onSuccess, onCancel, jobData, isEditing = false }: JobFormProps) {
+export function JobForm({
+  onSuccess,
+  onCancel,
+  jobData,
+  isEditing = false
+}: JobFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showCustomJobType, setShowCustomJobType] = useState(jobData?.job_type === 'other' || false);
-  const { toast } = useToast();
-
+  const {
+    toast
+  } = useToast();
   const form = useForm<JobFormData>({
     resolver: zodResolver(jobSchema),
     defaultValues: {
@@ -49,12 +51,11 @@ export function JobForm({ onSuccess, onCancel, jobData, isEditing = false }: Job
       job_description: jobData?.job_description || '',
       contract_value: jobData?.contract_value || undefined,
       start_date: jobData?.start_date || '',
-      completion_date: jobData?.completion_date || '',
-    },
+      completion_date: jobData?.completion_date || ''
+    }
   });
-
   const watchJobType = form.watch("job_type");
-  
+
   // Show custom job type field when "other" is selected
   React.useEffect(() => {
     setShowCustomJobType(watchJobType === 'other');
@@ -62,13 +63,15 @@ export function JobForm({ onSuccess, onCancel, jobData, isEditing = false }: Job
       form.setValue('custom_job_type', '');
     }
   }, [watchJobType, form]);
-
   const onSubmit = async (data: JobFormData) => {
     setIsSubmitting(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: {
+          user
+        }
+      } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
-
       const submissionData = {
         client_name: data.client_name,
         client_phone: data.client_phone || null,
@@ -79,30 +82,25 @@ export function JobForm({ onSuccess, onCancel, jobData, isEditing = false }: Job
         user_id: user.id,
         contract_value: data.contract_value || null,
         start_date: data.start_date || null,
-        completion_date: data.completion_date || null,
+        completion_date: data.completion_date || null
       };
-
       let error;
       if (isEditing && jobData?.id) {
-        const { error: updateError } = await supabase
-          .from('jobs')
-          .update(submissionData)
-          .eq('id', jobData.id);
+        const {
+          error: updateError
+        } = await supabase.from('jobs').update(submissionData).eq('id', jobData.id);
         error = updateError;
       } else {
-        const { error: insertError } = await supabase
-          .from('jobs')
-          .insert(submissionData);
+        const {
+          error: insertError
+        } = await supabase.from('jobs').insert(submissionData);
         error = insertError;
       }
-
       if (error) throw error;
-
       toast({
         title: isEditing ? 'Job updated successfully' : 'Job created successfully',
-        description: isEditing ? 'The job details have been updated.' : 'You can now start capturing evidence for this job.',
+        description: isEditing ? 'The job details have been updated.' : 'You can now start capturing evidence for this job.'
       });
-
       form.reset();
       onSuccess?.();
     } catch (error) {
@@ -110,15 +108,13 @@ export function JobForm({ onSuccess, onCancel, jobData, isEditing = false }: Job
       toast({
         title: 'Error creating job',
         description: error instanceof Error ? error.message : 'Please try again.',
-        variant: 'destructive',
+        variant: 'destructive'
       });
     } finally {
       setIsSubmitting(false);
     }
   };
-
-  return (
-    <Card className="w-full">
+  return <Card className="w-full">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Plus className="h-5 w-5" />
@@ -129,55 +125,41 @@ export function JobForm({ onSuccess, onCancel, jobData, isEditing = false }: Job
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="client_name"
-                render={({ field }) => (
-                  <FormItem>
+              <FormField control={form.control} name="client_name" render={({
+              field
+            }) => <FormItem>
                     <FormLabel>Client Name *</FormLabel>
                     <FormControl>
                       <Input placeholder="Enter client name" {...field} />
                     </FormControl>
                     <FormMessage />
-                  </FormItem>
-                )}
-              />
+                  </FormItem>} />
 
-              <FormField
-                control={form.control}
-                name="client_phone"
-                render={({ field }) => (
-                  <FormItem>
+              <FormField control={form.control} name="client_phone" render={({
+              field
+            }) => <FormItem>
                     <FormLabel>Client Phone</FormLabel>
                     <FormControl>
                       <Input placeholder="Enter phone number" {...field} />
                     </FormControl>
                     <FormMessage />
-                  </FormItem>
-                )}
-              />
+                  </FormItem>} />
             </div>
 
-            <FormField
-              control={form.control}
-              name="client_address"
-              render={({ field }) => (
-                <FormItem>
+            <FormField control={form.control} name="client_address" render={({
+            field
+          }) => <FormItem>
                   <FormLabel>Client Address *</FormLabel>
                   <FormControl>
                     <Textarea placeholder="Enter full address" {...field} />
                   </FormControl>
                   <FormMessage />
-                </FormItem>
-              )}
-            />
+                </FormItem>} />
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <FormField
-                control={form.control}
-                name="job_type"
-                render={({ field }) => (
-                  <FormItem>
+                <FormField control={form.control} name="job_type" render={({
+              field
+            }) => <FormItem>
                     <FormLabel>Job Type *</FormLabel>
                     <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
@@ -199,109 +181,72 @@ export function JobForm({ onSuccess, onCancel, jobData, isEditing = false }: Job
                       </SelectContent>
                     </Select>
                     <FormMessage />
-                  </FormItem>
-                )}
-              />
+                  </FormItem>} />
 
-              {showCustomJobType && (
-                <FormField
-                  control={form.control}
-                  name="custom_job_type"
-                  render={({ field }) => (
-                    <FormItem>
+              {showCustomJobType && <FormField control={form.control} name="custom_job_type" render={({
+              field
+            }) => <FormItem>
                       <FormLabel>Custom Job Type *</FormLabel>
                       <FormControl>
                         <Input placeholder="Enter your job type" {...field} />
                       </FormControl>
                       <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              )}
+                    </FormItem>} />}
 
-              <FormField
-                control={form.control}
-                name="contract_value"
-                render={({ field }) => (
-                  <FormItem>
+              <FormField control={form.control} name="contract_value" render={({
+              field
+            }) => <FormItem>
                     <FormLabel>Contract Value (£)</FormLabel>
                     <FormControl>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        placeholder="0.00"
-                        {...field}
-                        onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : undefined)}
-                      />
+                      <Input type="number" step="0.01" placeholder="0.00" {...field} onChange={e => field.onChange(e.target.value ? parseFloat(e.target.value) : undefined)} />
                     </FormControl>
                     <FormMessage />
-                  </FormItem>
-                )}
-              />
+                  </FormItem>} />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="start_date"
-                render={({ field }) => (
-                  <FormItem>
+              <FormField control={form.control} name="start_date" render={({
+              field
+            }) => <FormItem>
                     <FormLabel>Start Date</FormLabel>
                     <FormControl>
                       <Input type="date" {...field} />
                     </FormControl>
                     <FormMessage />
-                  </FormItem>
-                )}
-              />
+                  </FormItem>} />
 
-              <FormField
-                control={form.control}
-                name="completion_date"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Completion Date</FormLabel>
+              <FormField control={form.control} name="completion_date" render={({
+              field
+            }) => <FormItem>
+                    <FormLabel>Estimated Completion Date</FormLabel>
                     <FormControl>
                       <Input type="date" {...field} />
                     </FormControl>
                     <FormMessage />
-                  </FormItem>
-                )}
-              />
+                  </FormItem>} />
             </div>
 
-            <FormField
-              control={form.control}
-              name="job_description"
-              render={({ field }) => (
-                <FormItem>
+            <FormField control={form.control} name="job_description" render={({
+            field
+          }) => <FormItem>
                   <FormLabel>Job Description</FormLabel>
                   <FormControl>
-                    <Textarea 
-                      placeholder="Describe the work to be performed..."
-                      className="min-h-[100px]"
-                      {...field}
-                    />
+                    <Textarea placeholder="Describe the work to be performed..." className="min-h-[100px]" {...field} />
                   </FormControl>
                   <FormMessage />
-                </FormItem>
-              )}
-            />
+                </FormItem>} />
 
             <div className="flex gap-2 pt-4">
               <Button type="submit" disabled={isSubmitting} className="flex-1">
                 {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 {isEditing ? 'Update Job' : 'Create Job'}
               </Button>
-              {onCancel && (
-                <Button type="button" variant="outline" onClick={onCancel}>
+              {onCancel && <Button type="button" variant="outline" onClick={onCancel}>
                   Cancel
-                </Button>
-              )}
+                </Button>}
             </div>
           </form>
         </Form>
       </CardContent>
-    </Card>
-  );
+    </Card>;
 }
