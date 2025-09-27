@@ -271,7 +271,7 @@ export default function Settings() {
         </div>
 
         <Tabs defaultValue="profile" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-6">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="profile" className="flex items-center gap-2">
               <User className="h-4 w-4" />
               Profile
@@ -283,10 +283,6 @@ export default function Settings() {
             <TabsTrigger value="billing" className="flex items-center gap-2">
               <SettingsIcon className="h-4 w-4" />
               Billing
-            </TabsTrigger>
-            <TabsTrigger value="security" className="flex items-center gap-2">
-              <Shield className="h-4 w-4" />
-              Security
             </TabsTrigger>
             <TabsTrigger value="gdpr" className="flex items-center gap-2">
               <FileText className="h-4 w-4" />
@@ -569,26 +565,6 @@ export default function Settings() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="security" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Security Settings</CardTitle>
-                <CardDescription>
-                  Account security information and settings
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="text-center py-8">
-                  <Shield className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <h3 className="font-semibold mb-2">Security Features</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Your account is protected with industry-standard security measures. 
-                    Password management features are available in the Profile tab.
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
 
           <TabsContent value="notifications" className="space-y-6">
             <Card>

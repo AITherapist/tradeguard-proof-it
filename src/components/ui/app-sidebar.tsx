@@ -30,15 +30,12 @@ import {
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/components/ui/auth-provider";
 
-const mainNavItems = [
+const navItems = [
   { title: "Dashboard", url: "/dashboard", icon: Home },
   { title: "Jobs", url: "/jobs", icon: Briefcase },
   { title: "Analytics", url: "/analytics", icon: BarChart3 },
   { title: "Evidence", url: "/evidence", icon: Camera },
   { title: "Reports", url: "/reports", icon: FileText },
-];
-
-const settingsNavItems = [
   { title: "Settings", url: "/settings", icon: Settings },
 ];
 
@@ -60,9 +57,6 @@ export function AppSidebar() {
     return currentPath.startsWith(path);
   };
 
-  const isMainGroupExpanded = mainNavItems.some((i) => isActive(i.url));
-  const isSettingsGroupExpanded = settingsNavItems.some((i) => isActive(i.url));
-
   const getNavCls = (path: string) =>
     isActive(path) ? "bg-accent text-accent-foreground font-medium" : "hover:bg-accent/50";
 
@@ -79,35 +73,11 @@ export function AppSidebar() {
           </NavLink>
         </div>
 
-        {/* Main Navigation */}
+        {/* Navigation */}
         <SidebarGroup>
-          <SidebarGroupLabel className={collapsed ? "sr-only" : ""}>
-            Main
-          </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {mainNavItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild>
-                    <NavLink to={item.url} className={getNavCls(item.url)}>
-                      <item.icon className="h-4 w-4" />
-                      {!collapsed && <span>{item.title}</span>}
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        {/* Settings Navigation */}
-        <SidebarGroup>
-          <SidebarGroupLabel className={collapsed ? "sr-only" : ""}>
-            Settings
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {settingsNavItems.map((item) => (
+              {navItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild>
                     <NavLink to={item.url} className={getNavCls(item.url)}>
