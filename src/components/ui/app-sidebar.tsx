@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { 
   Shield, 
   Briefcase, 
@@ -49,6 +50,10 @@ export function AppSidebar() {
   const location = useLocation();
   const { signOut } = useAuth();
   const currentPath = location.pathname;
+  const isMobile = useIsMobile();
+
+  // Only show on desktop devices
+  if (isMobile) return null;
 
   const isActive = (path: string) => {
     if (path === "/dashboard") {

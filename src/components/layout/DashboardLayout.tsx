@@ -3,6 +3,7 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/ui/app-sidebar";
 import { MobileBottomNav } from "@/components/ui/mobile-bottom-nav";
 import { useAuth } from "@/components/ui/auth-provider";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -10,6 +11,7 @@ interface DashboardLayoutProps {
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {
   const { subscription } = useAuth();
+  const isMobile = useIsMobile();
 
   return (
     <SidebarProvider>
@@ -20,7 +22,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         {/* Main Content */}
         <div className="flex-1 flex flex-col">
           <header className="h-14 border-b bg-card flex items-center px-4 lg:px-6">
-            <SidebarTrigger className="lg:hidden" />
+            {!isMobile && <SidebarTrigger />}
             
             <div className="flex-1" />
             
@@ -36,7 +38,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
           {/* Page Content */}
           <main className="flex-1 overflow-auto">
-            <div className="pb-16 lg:pb-0">
+            <div className={isMobile ? "pb-16" : "pb-0"}>
               {children}
             </div>
           </main>

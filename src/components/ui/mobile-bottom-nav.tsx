@@ -1,6 +1,7 @@
 import { NavLink, useLocation } from "react-router-dom";
 import { Home, Briefcase, BarChart3, Settings, Camera } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const navItems = [
   { title: "Dashboard", url: "/dashboard", icon: Home },
@@ -12,6 +13,10 @@ const navItems = [
 
 export function MobileBottomNav() {
   const location = useLocation();
+  const isMobile = useIsMobile();
+
+  // Only show on mobile/tablet devices
+  if (!isMobile) return null;
 
   const isActive = (path: string) => {
     if (path === "/dashboard") {
@@ -21,7 +26,7 @@ export function MobileBottomNav() {
   };
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border lg:hidden">
+    <div className="fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border">
       <nav className="flex items-center justify-around py-2">
         {navItems.map((item) => {
           const active = isActive(item.url);
