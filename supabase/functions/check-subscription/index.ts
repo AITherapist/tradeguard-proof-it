@@ -108,7 +108,7 @@ serve(async (req) => {
       const { error: updateError } = await supabaseClient
         .from('profiles')
         .update({
-          subscription_status: 'active',
+          subscription_status: 'active' as any,
           customer_id: customerId,
           subscription_id: subscription.id,
           updated_at: new Date().toISOString(),
@@ -139,8 +139,9 @@ serve(async (req) => {
       const { error: profileUpdateError } = await supabaseClient
         .from('profiles')
         .update({
-          subscription_status: trialSubs.data.length > 0 ? 'trialing' : 'trial',
+          subscription_status: (trialSubs.data.length > 0 ? 'trialing' : 'trial') as any,
           customer_id: customerId,
+          subscription_id: trialSubs.data.length > 0 ? trialSubs.data[0].id : null,
           updated_at: new Date().toISOString(),
         })
         .eq('user_id', user.id);

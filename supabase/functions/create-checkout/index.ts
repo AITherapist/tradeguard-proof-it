@@ -77,17 +77,7 @@ serve(async (req) => {
       customer_email: customerId ? undefined : user.email,
       line_items: [
         {
-          price_data: {
-            currency: 'gbp',
-            product_data: {
-              name: 'TradeGuard Pro',
-              description: 'Professional evidence capture and documentation protection',
-            },
-            unit_amount: 9900, // £99.00 in pence
-            recurring: {
-              interval: 'month',
-            },
-          },
+          price: 'price_1SBu8tRqqnu3hH3ngK6IVGsv', // TradeGuard Pro monthly subscription
           quantity: 1,
         },
       ],
@@ -95,8 +85,8 @@ serve(async (req) => {
       subscription_data: {
         trial_period_days: 7,
       },
-      success_url: `${origin}/dashboard?success=true`,
-      cancel_url: `${origin}/dashboard?canceled=true`,
+      success_url: `${origin}/settings?success=true`,
+      cancel_url: `${origin}/settings?canceled=true`,
       allow_promotion_codes: true,
     });
 

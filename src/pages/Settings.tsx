@@ -307,10 +307,16 @@ export default function Settings() {
                   {!subscription?.subscribed ? <Button onClick={handleCreateCheckout} disabled={isLoading}>
                       <CreditCard className="h-4 w-4 mr-2" />
                       Subscribe to Premium
-                    </Button> : <Button onClick={handleManageBilling} variant="outline">
-                      <ExternalLink className="h-4 w-4 mr-2" />
-                      Manage Billing
-                    </Button>}
+                    </Button> : <div className="flex gap-3">
+                      <Button onClick={handleManageBilling} variant="outline">
+                        <ExternalLink className="h-4 w-4 mr-2" />
+                        Manage Billing
+                      </Button>
+                      <Button onClick={handleManageBilling} variant="outline">
+                        <SettingsIcon className="h-4 w-4 mr-2" />
+                        Update Billing Details
+                      </Button>
+                    </div>}
                 </div>
 
                 {/* Premium Plan */}
