@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
-import { User, CreditCard, Shield, Bell, Download, Settings as SettingsIcon, RefreshCw, ExternalLink, Check, X, FileText } from 'lucide-react';
+import { User, CreditCard, Shield, Bell, Settings as SettingsIcon, RefreshCw, ExternalLink, Check, FileText, Lock, Mail } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -30,6 +30,12 @@ export default function Settings() {
     phone: '',
     address: ''
   });
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
+  const [isPasswordLoading, setIsPasswordLoading] = useState(false);
   const {
     toast
   } = useToast();
@@ -89,6 +95,97 @@ export default function Settings() {
       });
     } finally {
       setIsLoading(false);
+    }
+  };
+  
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      toast({
+        title: 'Error',
+        description: 'New passwords do not match',
+        variant: 'destructive'
+      });
+      return;
+    }
+    
+    if (passwordData.newPassword.length < 6) {
+      toast({
+        title: 'Error',
+        description: 'Password must be at least 6 characters long',
+        variant: 'destructive'
+      });
+      return;
+    }
+    
+    setIsPasswordLoading(true);
+    try {
+      // Verify current password by attempting to sign in
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: user.email!,
+        password: passwordData.currentPassword
+      });
+      
+      if (signInError) {
+        toast({
+          title: 'Error',
+          description: 'Current password is incorrect',
+          variant: 'destructive'
+        });
+        return;
+      }
+      
+      // Update password
+      const { error } = await supabase.auth.updateUser({
+        password: passwordData.newPassword
+      });
+      
+      if (error) throw error;
+      
+      toast({
+        title: 'Password updated',
+        description: 'Your password has been successfully updated.'
+      });
+      
+      setPasswordData({
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: ''
+      });
+    } catch (error: any) {
+      console.error('Error updating password:', error);
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to update password',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsPasswordLoading(false);
+    }
+  };
+  
+  const handleForgotPassword = async () => {
+    if (!user?.email) return;
+    
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(user.email, {
+        redirectTo: `${window.location.origin}/auth`
+      });
+      
+      if (error) throw error;
+      
+      toast({
+        title: 'Reset email sent',
+        description: 'Please check your email for password reset instructions.'
+      });
+    } catch (error: any) {
+      console.error('Error sending reset email:', error);
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to send reset email',
+        variant: 'destructive'
+      });
     }
   };
   const handleRefreshSubscription = async () => {
@@ -254,6 +351,75 @@ export default function Settings() {
                 </form>
               </CardContent>
             </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Password Settings</CardTitle>
+                <CardDescription>
+                  Update your account password
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={handleChangePassword} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="currentPassword">Current Password</Label>
+                    <Input 
+                      id="currentPassword" 
+                      type="password"
+                      value={passwordData.currentPassword}
+                      onChange={(e) => setPasswordData({
+                        ...passwordData,
+                        currentPassword: e.target.value
+                      })}
+                      placeholder="Enter your current password"
+                    />
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="newPassword">New Password</Label>
+                      <Input 
+                        id="newPassword" 
+                        type="password"
+                        value={passwordData.newPassword}
+                        onChange={(e) => setPasswordData({
+                          ...passwordData,
+                          newPassword: e.target.value
+                        })}
+                        placeholder="Enter new password"
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="confirmPassword">Confirm New Password</Label>
+                      <Input 
+                        id="confirmPassword" 
+                        type="password"
+                        value={passwordData.confirmPassword}
+                        onChange={(e) => setPasswordData({
+                          ...passwordData,
+                          confirmPassword: e.target.value
+                        })}
+                        placeholder="Confirm new password"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <Button type="submit" disabled={isPasswordLoading}>
+                      {isPasswordLoading && <RefreshCw className="mr-2 h-4 w-4 animate-spin" />}
+                      <Lock className="mr-2 h-4 w-4" />
+                      Change Password
+                    </Button>
+                    
+                    <Button type="button" variant="outline" onClick={handleForgotPassword}>
+                      <Mail className="mr-2 h-4 w-4" />
+                      Forgot Password
+                    </Button>
+                  </div>
+                </form>
+              </CardContent>
+            </Card>
           </TabsContent>
 
           <TabsContent value="subscription" className="space-y-6">
@@ -408,51 +574,17 @@ export default function Settings() {
               <CardHeader>
                 <CardTitle>Security Settings</CardTitle>
                 <CardDescription>
-                  Manage your account security and privacy settings
+                  Account security information and settings
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h4 className="font-medium">Two-Factor Authentication</h4>
-                      <p className="text-sm text-muted-foreground">
-                        Add an extra layer of security to your account
-                      </p>
-                    </div>
-                    <Button variant="outline" size="sm">
-                      Enable 2FA
-                    </Button>
-                  </div>
-                  
-                  <Separator />
-                  
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h4 className="font-medium">Change Password</h4>
-                      <p className="text-sm text-muted-foreground">
-                        Update your account password
-                      </p>
-                    </div>
-                    <Button variant="outline" size="sm">
-                      Change Password
-                    </Button>
-                  </div>
-                  
-                  <Separator />
-                  
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h4 className="font-medium">Data Export</h4>
-                      <p className="text-sm text-muted-foreground">
-                        Download all your account data
-                      </p>
-                    </div>
-                    <Button variant="outline" size="sm">
-                      <Download className="h-4 w-4 mr-2" />
-                      Export Data
-                    </Button>
-                  </div>
+                <div className="text-center py-8">
+                  <Shield className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="font-semibold mb-2">Security Features</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Your account is protected with industry-standard security measures. 
+                    Password management features are available in the Profile tab.
+                  </p>
                 </div>
               </CardContent>
             </Card>
