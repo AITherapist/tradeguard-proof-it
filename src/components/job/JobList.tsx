@@ -4,8 +4,11 @@ import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Loader2, Eye, Camera, MapPin, Calendar, Phone, DollarSign } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { Loader2, Eye, Camera, MapPin, Calendar, Phone, DollarSign, Edit, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
+import { JobForm } from './JobForm';
 
 interface Job {
   id: string;
@@ -24,11 +27,15 @@ interface Job {
 interface JobListProps {
   onJobSelect?: (jobId: string) => void;
   onEvidenceCapture?: (jobId: string) => void;
+  onJobChange?: () => void;
 }
 
-export function JobList({ onJobSelect, onEvidenceCapture }: JobListProps) {
+export function JobList({ onJobSelect, onEvidenceCapture, onJobChange }: JobListProps) {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [editingJob, setEditingJob] = useState<Job | null>(null);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [deletingJobId, setDeletingJobId] = useState<string | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -70,6 +77,59 @@ export function JobList({ onJobSelect, onEvidenceCapture }: JobListProps) {
     if (status >= 80) return 'Well Protected';
     if (status >= 50) return 'Partially Protected';
     return 'Needs Evidence';
+  };
+
+  const handleEditJob = (job: Job) => {
+    setEditingJob(job);
+    setShowEditModal(true);
+  };
+
+  const handleJobUpdated = () => {
+    setShowEditModal(false);
+    setEditingJob(null);
+    fetchJobs(); // Refresh the jobs list
+    onJobChange?.(); // Notify parent component
+    toast({
+      title: 'Job Updated',
+      description: 'Job has been updated successfully',
+    });
+  };
+
+  const handleEditCancel = () => {
+    setShowEditModal(false);
+    setEditingJob(null);
+  };
+
+  const handleDeleteJob = async (jobId: string) => {
+    try {
+      const { data, error } = await supabase.functions.invoke('delete-job', {
+        body: { jobId },
+        headers: {
+          Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+        },
+      });
+
+      if (error) throw error;
+      if (!data.success) throw new Error(data.error);
+
+      // Remove from local state
+      setJobs(prev => prev.filter(job => job.id !== jobId));
+      onJobChange?.(); // Notify parent component
+      
+      toast({
+        title: 'Job Deleted',
+        description: `Job has been deleted successfully. ${data.evidence_files_cleaned} evidence files cleaned up.`,
+      });
+    } catch (error) {
+      console.error('Error deleting job:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to delete job. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setDeletingJobId(null);
+    }
   };
 
   if (isLoading) {
@@ -142,12 +202,11 @@ export function JobList({ onJobSelect, onEvidenceCapture }: JobListProps) {
                 </p>
               )}
 
-              <div className="flex gap-2 pt-2">
+              <div className="grid grid-cols-2 gap-2 pt-2">
                 <Button 
                   variant="outline" 
                   size="sm" 
                   onClick={() => onJobSelect?.(job.id)}
-                  className="flex-1"
                 >
                   <Eye className="h-4 w-4 mr-2" />
                   View Details
@@ -155,16 +214,70 @@ export function JobList({ onJobSelect, onEvidenceCapture }: JobListProps) {
                 <Button 
                   size="sm" 
                   onClick={() => onEvidenceCapture?.(job.id)}
-                  className="flex-1"
                 >
                   <Camera className="h-4 w-4 mr-2" />
-                  Capture Evidence
+                  Capture
                 </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => handleEditJob(job)}
+                >
+                  <Edit className="h-4 w-4 mr-2" />
+                  Edit Details
+                </Button>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Delete
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Delete Job</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Are you sure you want to delete this job? This action cannot be undone.
+                        All evidence and data associated with this job will be permanently removed.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={() => handleDeleteJob(job.id)}
+                        className="bg-red-600 hover:bg-red-700"
+                      >
+                        Delete Job
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
               </div>
             </div>
           </CardContent>
         </Card>
       ))}
+      
+      {/* Edit Job Modal */}
+      <Dialog open={showEditModal} onOpenChange={setShowEditModal}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Job</DialogTitle>
+          </DialogHeader>
+          {editingJob && (
+            <JobForm 
+              jobData={editingJob}
+              isEditing={true}
+              onSuccess={handleJobUpdated}
+              onCancel={handleEditCancel}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

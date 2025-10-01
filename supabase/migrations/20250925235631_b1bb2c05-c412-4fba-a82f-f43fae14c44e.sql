@@ -284,7 +284,7 @@ VALUES (
   false, 
   52428800, -- 50MB limit
   ARRAY['image/jpeg', 'image/png', 'application/pdf']
-);
+) ON CONFLICT (id) DO NOTHING;
 
 -- Create storage policies for evidence bucket
 CREATE POLICY "Users can upload evidence for their jobs" 

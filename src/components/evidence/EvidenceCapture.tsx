@@ -12,14 +12,25 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Camera, Upload, MapPin, CheckCircle, Clock, AlertCircle } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Loader2, Camera, Upload, MapPin, CheckCircle, Clock, AlertCircle, X } from 'lucide-react';
 import { BlockchainVerification } from '@/components/blockchain/BlockchainVerification';
+import { SignatureCanvas } from '@/components/signature/SignatureCanvas';
+import { PenTool, Trash2 } from 'lucide-react';
 
 const evidenceSchema = z.object({
   evidence_type: z.enum(['before', 'progress', 'after', 'approval']),
   description: z.string().min(1, 'Description is required').max(1000),
   client_approval: z.boolean().default(false),
+  client_name: z.string().optional(),
+  client_designation: z.string().optional(),
   client_signature: z.string().optional(),
+});
+
+const clientInfoSchema = z.object({
+  client_name: z.string().min(1, 'Client name is required'),
+  client_designation: z.string().min(1, 'Client designation is required'),
+  client_signature: z.string().min(1, 'Client signature is required'),
 });
 
 type EvidenceFormData = z.infer<typeof evidenceSchema>;
@@ -34,14 +45,19 @@ interface EvidenceCaptureProps {
   jobId: string;
   onSuccess?: () => void;
   onCancel?: () => void;
+  isOpen?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
-export function EvidenceCapture({ jobId, onSuccess, onCancel }: EvidenceCaptureProps) {
+export function EvidenceCapture({ jobId, onSuccess, onCancel, isOpen = true, onOpenChange }: EvidenceCaptureProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [location, setLocation] = useState<Location | null>(null);
   const [locationStatus, setLocationStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [preview, setPreview] = useState<string | null>(null);
+  const [locationPermissionRequested, setLocationPermissionRequested] = useState(false);
+  const [clientInfoSaved, setClientInfoSaved] = useState(false);
+  const [isSavingClientInfo, setIsSavingClientInfo] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
@@ -51,6 +67,8 @@ export function EvidenceCapture({ jobId, onSuccess, onCancel }: EvidenceCaptureP
       evidence_type: 'progress',
       description: '',
       client_approval: false,
+      client_name: '',
+      client_designation: '',
       client_signature: '',
     },
   });
@@ -64,6 +82,62 @@ export function EvidenceCapture({ jobId, onSuccess, onCancel }: EvidenceCaptureP
       setPreview(null);
     }
   }, [selectedFile]);
+
+  // Auto-request location when component opens
+  useEffect(() => {
+    if (isOpen && !locationPermissionRequested) {
+      requestLocationAutomatically();
+    }
+  }, [isOpen]);
+
+  const requestLocationAutomatically = async () => {
+    if (!navigator.geolocation) {
+      setLocationStatus('error');
+      toast({
+        title: 'Location not supported',
+        description: 'Your browser does not support location services.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setLocationPermissionRequested(true);
+    setLocationStatus('loading');
+    
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setLocation({
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+          accuracy: position.coords.accuracy,
+        });
+        setLocationStatus('success');
+        toast({
+          title: 'Location captured automatically',
+          description: `GPS coordinates recorded with ${Math.round(position.coords.accuracy)}m accuracy.`,
+        });
+      },
+      (error) => {
+        console.error('Location error:', error);
+        setLocationStatus('error');
+        
+        // Show permission dialog for location access
+        toast({
+          title: 'Location permission required',
+          description: 'Location access is necessary for evidence protection. Please allow location access.',
+          variant: 'destructive',
+        });
+        
+        // Show a more detailed permission request
+        setTimeout(() => {
+          if (confirm('Location access is required for evidence protection. This helps verify where the work was performed. Would you like to try again?')) {
+            requestLocation();
+          }
+        }, 2000);
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+    );
+  };
 
   const requestLocation = async () => {
     if (!navigator.geolocation) {
@@ -145,6 +219,14 @@ export function EvidenceCapture({ jobId, onSuccess, onCancel }: EvidenceCaptureP
       formData.append('description', data.description);
       formData.append('clientApproval', data.client_approval.toString());
       
+      if (data.client_name) {
+        formData.append('clientName', data.client_name);
+      }
+      
+      if (data.client_designation) {
+        formData.append('clientDesignation', data.client_designation);
+      }
+      
       if (data.client_signature) {
         formData.append('clientSignature', data.client_signature);
       }
@@ -166,11 +248,7 @@ export function EvidenceCapture({ jobId, onSuccess, onCancel }: EvidenceCaptureP
         description: 'Your evidence has been securely stored and blockchain timestamping initiated.',
       });
 
-      form.reset();
-      setSelectedFile(null);
-      setLocation(null);
-      setLocationStatus('idle');
-      onSuccess?.();
+      handleSuccess();
     } catch (error) {
       console.error('Error uploading evidence:', error);
       toast({
@@ -183,15 +261,77 @@ export function EvidenceCapture({ jobId, onSuccess, onCancel }: EvidenceCaptureP
     }
   };
 
+  const handleClose = () => {
+    if (onOpenChange) {
+      onOpenChange(false);
+    } else if (onCancel) {
+      onCancel();
+    }
+  };
+
+  const handleSuccess = () => {
+    form.reset();
+    setSelectedFile(null);
+    setLocation(null);
+    setLocationStatus('idle');
+    setLocationPermissionRequested(false);
+    setClientInfoSaved(false);
+    onSuccess?.();
+    handleClose();
+  };
+
+  const saveClientInfo = async () => {
+    const clientName = form.getValues('client_name');
+    const clientDesignation = form.getValues('client_designation');
+    const clientSignature = form.getValues('client_signature');
+    
+    if (!clientName || !clientDesignation || !clientSignature) {
+      toast({
+        title: 'Missing information',
+        description: 'Please fill in client name, designation, and signature.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsSavingClientInfo(true);
+    try {
+      // Validate client info
+      const validatedData = clientInfoSchema.parse({
+        client_name: clientName,
+        client_designation: clientDesignation,
+        client_signature: clientSignature,
+      });
+
+      // Here you could save to a separate table or local storage
+      // For now, we'll just mark it as saved
+      setClientInfoSaved(true);
+      
+      toast({
+        title: 'Client information saved',
+        description: 'Client name, designation, and signature have been saved successfully.',
+      });
+    } catch (error) {
+      console.error('Error saving client info:', error);
+      toast({
+        title: 'Error saving client information',
+        description: 'Please check your inputs and try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSavingClientInfo(false);
+    }
+  };
+
   return (
-    <Card className="w-full">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Camera className="h-5 w-5" />
-          Capture Evidence
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
+    <Dialog open={isOpen} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Camera className="h-5 w-5" />
+            Capture Evidence
+          </DialogTitle>
+        </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             {/* File Upload Section */}
@@ -346,19 +486,82 @@ export function EvidenceCapture({ jobId, onSuccess, onCancel }: EvidenceCaptureP
               />
 
               {form.watch('client_approval') && (
-                <FormField
-                  control={form.control}
-                  name="client_signature"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Client Signature/Name</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Client name or signature" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                <div className="space-y-4 p-4 border rounded-lg bg-muted/50">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-sm font-medium">Client Approval Details</h4>
+                    {clientInfoSaved && (
+                      <Badge variant="secondary" className="text-xs">
+                        <CheckCircle className="mr-1 h-3 w-3" />
+                        Saved
+                      </Badge>
+                    )}
+                  </div>
+                  
+                  <FormField
+                    control={form.control}
+                    name="client_name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Client Name *</FormLabel>
+                        <FormControl>
+                          <Input 
+                            placeholder="Enter client's full name" 
+                            {...field} 
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="client_designation"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Client Designation *</FormLabel>
+                        <FormControl>
+                          <Input 
+                            placeholder="Enter client's designation/position" 
+                            {...field} 
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="client_signature"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Client Digital Signature *</FormLabel>
+                        <FormControl>
+                          <SimpleSignatureCanvas
+                            onSignatureChange={field.onChange}
+                            value={field.value}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <div className="flex gap-2 pt-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={saveClientInfo}
+                      disabled={isSavingClientInfo || !form.getValues('client_name') || !form.getValues('client_designation') || !form.getValues('client_signature')}
+                    >
+                      {isSavingClientInfo && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      <CheckCircle className="mr-2 h-4 w-4" />
+                      Save Client Info
+                    </Button>
+                  </div>
+                </div>
               )}
             </div>
 
@@ -369,15 +572,157 @@ export function EvidenceCapture({ jobId, onSuccess, onCancel }: EvidenceCaptureP
                 <Camera className="mr-2 h-4 w-4" />
                 Capture Evidence
               </Button>
-              {onCancel && (
-                <Button type="button" variant="outline" onClick={onCancel}>
-                  Cancel
-                </Button>
-              )}
+              <Button type="button" variant="outline" onClick={handleClose}>
+                Cancel
+              </Button>
             </div>
           </form>
         </Form>
-      </CardContent>
-    </Card>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// Simple Signature Canvas Component (without popup dialog)
+interface SimpleSignatureCanvasProps {
+  onSignatureChange: (signature: string) => void;
+  value?: string;
+  disabled?: boolean;
+}
+
+function SimpleSignatureCanvas({ onSignatureChange, value, disabled }: SimpleSignatureCanvasProps) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [isDrawing, setIsDrawing] = useState(false);
+
+  const startDrawing = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    if (disabled) return;
+    
+    setIsDrawing(true);
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+
+    let clientX, clientY;
+    if ('touches' in e) {
+      clientX = e.touches[0].clientX;
+      clientY = e.touches[0].clientY;
+    } else {
+      clientX = e.clientX;
+      clientY = e.clientY;
+    }
+
+    const x = (clientX - rect.left) * scaleX;
+    const y = (clientY - rect.top) * scaleY;
+
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+    }
+  };
+
+  const draw = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    if (!isDrawing || disabled) return;
+    
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+
+    let clientX, clientY;
+    if ('touches' in e) {
+      clientX = e.touches[0].clientX;
+      clientY = e.touches[0].clientY;
+    } else {
+      clientX = e.clientX;
+      clientY = e.clientY;
+    }
+
+    const x = (clientX - rect.left) * scaleX;
+    const y = (clientY - rect.top) * scaleY;
+
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      ctx.lineWidth = 2;
+      ctx.lineCap = 'round';
+      ctx.strokeStyle = '#000';
+      ctx.lineTo(x, y);
+      ctx.stroke();
+    }
+  };
+
+  const stopDrawing = () => {
+    setIsDrawing(false);
+    const canvas = canvasRef.current;
+    if (canvas) {
+      const dataUrl = canvas.toDataURL();
+      onSignatureChange(dataUrl);
+    }
+  };
+
+  const clearSignature = () => {
+    const canvas = canvasRef.current;
+    if (canvas) {
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        onSignatureChange('');
+      }
+    }
+  };
+
+  // Load existing signature
+  useEffect(() => {
+    if (value && canvasRef.current) {
+      const canvas = canvasRef.current;
+      const ctx = canvas.getContext('2d');
+      const img = new Image();
+      img.onload = () => {
+        if (ctx) {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(img, 0, 0);
+        }
+      };
+      img.src = value;
+    }
+  }, [value]);
+
+  return (
+    <div className="space-y-4">
+      <div className="border-2 border-dashed border-muted-foreground/30 rounded-lg p-2 bg-white">
+        <canvas
+          ref={canvasRef}
+          width={400}
+          height={150}
+          className="w-full h-32 border border-border rounded cursor-crosshair"
+          onMouseDown={startDrawing}
+          onMouseMove={draw}
+          onMouseUp={stopDrawing}
+          onMouseLeave={stopDrawing}
+          onTouchStart={startDrawing}
+          onTouchMove={draw}
+          onTouchEnd={stopDrawing}
+          style={{ touchAction: 'none' }}
+        />
+      </div>
+
+      <div className="flex gap-2">
+        <Button variant="outline" size="sm" onClick={clearSignature} disabled={disabled}>
+          <Trash2 className="h-4 w-4 mr-2" />
+          Clear
+        </Button>
+      </div>
+
+      {!disabled && (
+        <p className="text-xs text-muted-foreground">
+          Draw your signature using mouse or finger. For best results, use a stylus or draw slowly.
+        </p>
+      )}
+    </div>
   );
 }

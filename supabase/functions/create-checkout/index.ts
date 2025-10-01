@@ -4,7 +4,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-billing-setup",
 };
 
 const logStep = (step: string, details?: any) => {
@@ -23,6 +23,10 @@ serve(async (req) => {
     const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
     if (!stripeKey) throw new Error("STRIPE_SECRET_KEY is not set");
     logStep("Stripe key verified");
+
+    // Check if this is a billing setup request
+    const isBillingSetup = req.headers.get('x-billing-setup') === 'true';
+    logStep("Billing setup mode", { isBillingSetup });
 
     const supabaseClient = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
@@ -91,13 +95,22 @@ serve(async (req) => {
         },
       ],
       mode: "subscription",
-      // Only add trial for first-time users
-      subscription_data: hasExistingSubscription ? undefined : {
+      // Only add trial for first-time users or billing setup
+      subscription_data: (hasExistingSubscription && !isBillingSetup) ? undefined : {
         trial_period_days: 7,
       },
-      success_url: `${origin}/settings?success=true&tab=billing`,
-      cancel_url: `${origin}/settings?canceled=true`,
+      success_url: isBillingSetup 
+        ? `${origin}/dashboard?billing_setup=success`
+        : `${origin}/settings?success=true&tab=billing`,
+      cancel_url: isBillingSetup 
+        ? `${origin}/dashboard?billing_setup=cancelled`
+        : `${origin}/settings?canceled=true`,
       allow_promotion_codes: true,
+      // Add metadata to track billing setup
+      metadata: isBillingSetup ? {
+        billing_setup: 'true',
+        user_id: user.id
+      } : {},
     });
 
     logStep("Checkout session created", { sessionId: session.id, url: session.url });

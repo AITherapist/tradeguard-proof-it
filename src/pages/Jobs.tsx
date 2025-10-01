@@ -13,6 +13,7 @@ type ViewMode = 'list' | 'create' | 'evidence' | 'detail' | 'approval';
 export default function Jobs() {
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
+  const [isEvidenceModalOpen, setIsEvidenceModalOpen] = useState(false);
 
   const handleJobCreated = () => {
     setViewMode('list');
@@ -25,7 +26,7 @@ export default function Jobs() {
 
   const handleEvidenceCapture = (jobId: string) => {
     setSelectedJobId(jobId);
-    setViewMode('evidence');
+    setIsEvidenceModalOpen(true);
   };
 
   const handleApprovalWorkflow = (jobId: string) => {
@@ -34,22 +35,18 @@ export default function Jobs() {
   };
 
   const handleEvidenceCaptured = () => {
-    setViewMode('list');
+    setIsEvidenceModalOpen(false);
     setSelectedJobId(null);
+  };
+
+  const handleJobChange = () => {
+    // This will be called when jobs are updated/deleted
+    // The JobList component will handle refreshing its own data
   };
 
   const renderHeader = () => {
     switch (viewMode) {
       case 'create':
-        return (
-          <div className="flex items-center gap-4 mb-6">
-            <Button variant="ghost" size="sm" onClick={() => setViewMode('list')}>
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Jobs
-            </Button>
-          </div>
-        );
-      case 'evidence':
         return (
           <div className="flex items-center gap-4 mb-6">
             <Button variant="ghost" size="sm" onClick={() => setViewMode('list')}>
@@ -78,18 +75,20 @@ export default function Jobs() {
         );
       default:
         return (
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-            <div>
-              <h1 className="text-3xl font-bold">Jobs</h1>
-              <p className="text-muted-foreground">
-                Manage your jobs and capture evidence
-              </p>
-            </div>
-            <div className="flex flex-col sm:flex-row gap-2">
-              <Button onClick={() => setViewMode('create')}>
-                <Plus className="h-4 w-4 mr-2" />
-                New Job
-              </Button>
+          <div className="flex flex-col space-y-2">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div>
+                <h1 className="text-3xl font-bold tracking-tight">Jobs</h1>
+                <p className="text-muted-foreground">
+                  Manage your jobs and capture evidence
+                </p>
+              </div>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <Button onClick={() => setViewMode('create')}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  New Job
+                </Button>
+              </div>
             </div>
           </div>
         );
@@ -105,14 +104,6 @@ export default function Jobs() {
             onCancel={() => setViewMode('list')}
           />
         );
-      case 'evidence':
-        return selectedJobId ? (
-          <EvidenceCapture
-            jobId={selectedJobId}
-            onSuccess={handleEvidenceCaptured}
-            onCancel={() => setViewMode('list')}
-          />
-        ) : null;
       case 'detail':
         return selectedJobId ? (
           <JobDetailView
@@ -131,6 +122,7 @@ export default function Jobs() {
           <JobList
             onJobSelect={handleJobSelect}
             onEvidenceCapture={handleEvidenceCapture}
+            onJobChange={handleJobChange}
           />
         );
     }
@@ -138,9 +130,20 @@ export default function Jobs() {
 
   return (
     <DashboardLayout>
-      <div className="container mx-auto px-6 py-8 max-w-6xl">
+      <div className="p-6 space-y-6">
         {renderHeader()}
         {renderContent()}
+        
+        {/* Evidence Capture Modal */}
+        {selectedJobId && (
+          <EvidenceCapture
+            jobId={selectedJobId}
+            isOpen={isEvidenceModalOpen}
+            onOpenChange={setIsEvidenceModalOpen}
+            onSuccess={handleEvidenceCaptured}
+            onCancel={() => setIsEvidenceModalOpen(false)}
+          />
+        )}
       </div>
     </DashboardLayout>
   );

@@ -5,9 +5,12 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { JobForm } from '@/components/job/JobForm';
+import { JobDetailView } from '@/components/job/JobDetailView';
 import { 
   Plus, 
   Search, 
@@ -48,6 +51,10 @@ export function RecentJobsCard({ jobs, isLoading, onJobsChange }: RecentJobsCard
   const [typeFilter, setTypeFilter] = useState('all');
   const [sortBy, setSortBy] = useState('created_at');
   const [deleteJobId, setDeleteJobId] = useState<string | null>(null);
+  const [editingJob, setEditingJob] = useState<Job | null>(null);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
+  const [showJobDetail, setShowJobDetail] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -126,6 +133,36 @@ export function RecentJobsCard({ jobs, isLoading, onJobsChange }: RecentJobsCard
     setDeleteJobId(null);
   };
 
+  const handleViewJob = (job: Job) => {
+    setSelectedJobId(job.id);
+    setShowJobDetail(true);
+  };
+
+  const handleEditJob = (job: Job) => {
+    setEditingJob(job);
+    setShowEditModal(true);
+  };
+
+  const handleJobUpdated = () => {
+    setShowEditModal(false);
+    setEditingJob(null);
+    onJobsChange();
+    toast({
+      title: 'Job Updated',
+      description: 'Job has been updated successfully',
+    });
+  };
+
+  const handleEditCancel = () => {
+    setShowEditModal(false);
+    setEditingJob(null);
+  };
+
+  const handleJobDetailClose = () => {
+    setShowJobDetail(false);
+    setSelectedJobId(null);
+  };
+
   const uniqueJobTypes = [...new Set(jobs.map(job => job.job_type))];
 
   return (
@@ -139,31 +176,39 @@ export function RecentJobsCard({ jobs, isLoading, onJobsChange }: RecentJobsCard
                 Recent Jobs
               </CardTitle>
               <CardDescription>
-                Your latest trade jobs and their protection status
+                Your latest jobs and their protection status
               </CardDescription>
             </div>
-            <Button onClick={() => navigate('/jobs')} size="sm">
-              <Plus className="h-4 w-4 mr-2" />
-              New Job
-            </Button>
+          
           </div>
           
-          {/* Search and Filters */}
-          <div className="flex flex-col space-y-3 md:flex-row md:space-y-0 md:space-x-3">
-            <div className="relative flex-1">
+          {/* Search and Filters - Responsive */}
+          <div 
+            className="flex flex-col space-y-3 sm:flex-row sm:space-y-0 sm:space-x-3"
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+              gap: '0.75rem'
+            }}
+          >
+            <div className="relative flex-1 min-w-0">
               <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search jobs by client, address, or type..."
+                placeholder="Search jobs..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10"
+                style={{ fontSize: 'clamp(0.875rem, 2vw, 1rem)' }}
               />
             </div>
             
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-full md:w-[180px]">
+              <SelectTrigger 
+                className="w-full"
+                style={{ fontSize: 'clamp(0.875rem, 2vw, 1rem)' }}
+              >
                 <Filter className="h-4 w-4 mr-2" />
-                <SelectValue placeholder="Filter by status" />
+                <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Status</SelectItem>
@@ -174,8 +219,11 @@ export function RecentJobsCard({ jobs, isLoading, onJobsChange }: RecentJobsCard
             </Select>
 
             <Select value={typeFilter} onValueChange={setTypeFilter}>
-              <SelectTrigger className="w-full md:w-[180px]">
-                <SelectValue placeholder="Filter by type" />
+              <SelectTrigger 
+                className="w-full"
+                style={{ fontSize: 'clamp(0.875rem, 2vw, 1rem)' }}
+              >
+                <SelectValue placeholder="Type" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Types</SelectItem>
@@ -188,8 +236,11 @@ export function RecentJobsCard({ jobs, isLoading, onJobsChange }: RecentJobsCard
             </Select>
 
             <Select value={sortBy} onValueChange={setSortBy}>
-              <SelectTrigger className="w-full md:w-[180px]">
-                <SelectValue placeholder="Sort by" />
+              <SelectTrigger 
+                className="w-full"
+                style={{ fontSize: 'clamp(0.875rem, 2vw, 1rem)' }}
+              >
+                <SelectValue placeholder="Sort" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="created_at">Date Created</SelectItem>
@@ -229,75 +280,91 @@ export function RecentJobsCard({ jobs, isLoading, onJobsChange }: RecentJobsCard
           ) : (
             <div className="space-y-3">
               {filteredAndSortedJobs.slice(0, 10).map((job) => (
-                <div key={job.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors">
-                  <div className="flex-1">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center space-x-3">
-                          {getProtectionIcon(job.protection_status)}
-                          <div>
-                            <h4 className="font-semibold text-foreground">{job.client_name}</h4>
-                            <p className="text-sm text-muted-foreground">
-                              {job.job_type.replace('_', ' ')} • {job.client_address}
-                            </p>
-                            <div className="flex items-center space-x-4 mt-1">
-                              <span className="text-xs text-muted-foreground flex items-center gap-1">
-                                <CalendarDays className="h-3 w-3" />
-                                {new Date(job.created_at).toLocaleDateString()}
-                              </span>
-                              {job.contract_value && (
-                                <span className="text-xs text-muted-foreground">
-                                  £{job.contract_value.toLocaleString()}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-center space-x-4">
-                        <div className="text-right">
-                          <div className="flex items-center space-x-2 mb-1">
-                            {getProtectionBadge(job.protection_status)}
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            <span className="text-sm font-medium">
-                              {job.protection_status}%
+                <div 
+                  key={job.id} 
+                  className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 border rounded-lg hover:bg-muted/50 transition-colors gap-3"
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start space-x-3">
+                      {getProtectionIcon(job.protection_status)}
+                      <div className="flex-1 min-w-0">
+                        <h4 
+                          className="font-semibold text-foreground truncate"
+                          style={{ fontSize: 'clamp(0.875rem, 2.5vw, 1rem)' }}
+                        >
+                          {job.client_name}
+                        </h4>
+                        <p 
+                          className="text-muted-foreground truncate"
+                          style={{ fontSize: 'clamp(0.75rem, 2vw, 0.875rem)' }}
+                        >
+                          {job.job_type.replace('_', ' ')} • {job.client_address}
+                        </p>
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-4 mt-1 space-y-1 sm:space-y-0">
+                          <span 
+                            className="text-muted-foreground flex items-center gap-1"
+                            style={{ fontSize: 'clamp(0.75rem, 2vw, 0.875rem)' }}
+                          >
+                            <CalendarDays className="h-3 w-3" />
+                            {new Date(job.created_at).toLocaleDateString()}
+                          </span>
+                          {job.contract_value && (
+                            <span 
+                              className="text-muted-foreground"
+                              style={{ fontSize: 'clamp(0.75rem, 2vw, 0.875rem)' }}
+                            >
+                              £{job.contract_value.toLocaleString()}
                             </span>
-                            <Progress 
-                              value={job.protection_status} 
-                              className="w-20"
-                            />
-                          </div>
-                        </div>
-                        
-                        <div className="flex items-center space-x-1">
-                          <Button 
-                            variant="ghost" 
-                            size="sm"
-                            onClick={() => navigate(`/jobs?view=${job.id}`)}
-                            className="h-8 w-8 p-0"
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                          <Button 
-                            variant="ghost" 
-                            size="sm"
-                            onClick={() => navigate(`/jobs?edit=${job.id}`)}
-                            className="h-8 w-8 p-0"
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button 
-                            variant="ghost" 
-                            size="sm"
-                            onClick={() => setDeleteJobId(job.id)}
-                            className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          )}
                         </div>
                       </div>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center justify-between sm:justify-end space-x-3">
+                    <div className="flex flex-col items-end">
+                      <div className="flex items-center space-x-2 mb-1">
+                        {getProtectionBadge(job.protection_status)}
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <span 
+                          className="font-medium"
+                          style={{ fontSize: 'clamp(0.75rem, 2vw, 0.875rem)' }}
+                        >
+                          {job.protection_status}%
+                        </span>
+                        <Progress 
+                          value={job.protection_status} 
+                          className="w-16 sm:w-20"
+                        />
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center space-x-1">
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={() => handleViewJob(job)}
+                        className="h-8 w-8 p-0"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={() => handleEditJob(job)}
+                        className="h-8 w-8 p-0"
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={() => setDeleteJobId(job.id)}
+                        className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </div>
                   </div>
                 </div>
@@ -334,6 +401,38 @@ export function RecentJobsCard({ jobs, isLoading, onJobsChange }: RecentJobsCard
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Job Detail Modal */}
+      {selectedJobId && (
+        <Dialog open={showJobDetail} onOpenChange={setShowJobDetail}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Job Details</DialogTitle>
+            </DialogHeader>
+            <JobDetailView 
+              jobId={selectedJobId}
+              onBack={handleJobDetailClose}
+            />
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Edit Job Modal */}
+      <Dialog open={showEditModal} onOpenChange={setShowEditModal}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Job</DialogTitle>
+          </DialogHeader>
+          {editingJob && (
+            <JobForm 
+              jobData={editingJob}
+              isEditing={true}
+              onSuccess={handleJobUpdated}
+              onCancel={handleEditCancel}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

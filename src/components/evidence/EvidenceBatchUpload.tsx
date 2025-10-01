@@ -98,32 +98,6 @@ export function EvidenceBatchUpload({ jobId, onSuccess, onCancel }: EvidenceBatc
         f.id === fileItem.id ? { ...f, status: 'uploading' as const, progress: 0 } : f
       ));
 
-      // Get current user
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
-
-      // Create file path
-      const fileExt = fileItem.file.name.split('.').pop();
-      const fileName = `${user.id}/${jobId}/${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
-
-      // Upload file to storage
-      const { error: uploadError } = await supabase.storage
-        .from('evidence')
-        .upload(fileName, fileItem.file);
-
-      if (uploadError) throw uploadError;
-
-      // Update progress to 50% after upload
-      setFiles(prev => prev.map(f => 
-        f.id === fileItem.id ? { ...f, progress: 50 } : f
-      ));
-
-      // Create file hash
-      const arrayBuffer = await fileItem.file.arrayBuffer();
-      const hashBuffer = await crypto.subtle.digest('SHA-256', arrayBuffer);
-      const hashArray = Array.from(new Uint8Array(hashBuffer));
-      const fileHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-
       // Get GPS location
       let gpsData = null;
       try {
@@ -144,24 +118,35 @@ export function EvidenceBatchUpload({ jobId, onSuccess, onCancel }: EvidenceBatc
         console.log('GPS location not available:', error);
       }
 
-      // Save evidence record
-      const evidenceData = {
-        job_id: jobId,
-        evidence_type: formData.evidence_type,
-        description: formData.description,
-        file_path: fileName,
-        file_hash: fileHash,
-        device_timestamp: new Date().toISOString(),
-        ...gpsData,
-      };
+      // Update progress to 30% after GPS
+      setFiles(prev => prev.map(f => 
+        f.id === fileItem.id ? { ...f, progress: 30 } : f
+      ));
 
-      const { error: dbError } = await supabase
-        .from('evidence_items')
-        .insert(evidenceData);
+      // Use the upload-evidence function for automatic blockchain verification
+      const formDataForUpload = new FormData();
+      formDataForUpload.append('file', fileItem.file);
+      formDataForUpload.append('jobId', jobId);
+      formDataForUpload.append('evidenceType', formData.evidence_type);
+      formDataForUpload.append('description', formData.description);
+      
+      if (gpsData?.gps_latitude) {
+        formDataForUpload.append('gpsLatitude', gpsData.gps_latitude.toString());
+      }
+      if (gpsData?.gps_longitude) {
+        formDataForUpload.append('gpsLongitude', gpsData.gps_longitude.toString());
+      }
+      if (gpsData?.gps_accuracy) {
+        formDataForUpload.append('gpsAccuracy', gpsData.gps_accuracy.toString());
+      }
 
-      if (dbError) throw dbError;
+      const { data, error } = await supabase.functions.invoke('upload-evidence', {
+        body: formDataForUpload,
+      });
 
-      // Update status to success
+      if (error) throw error;
+
+      // Update progress to 100% after successful upload and blockchain verification
       setFiles(prev => prev.map(f => 
         f.id === fileItem.id ? { ...f, status: 'success' as const, progress: 100 } : f
       ));

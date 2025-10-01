@@ -1,16 +1,34 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/components/ui/auth-provider';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { FileText, Download, Filter, Calendar, Search, RefreshCw } from 'lucide-react';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { FileText, Download, Trash2, Eye, Calendar, User, Shield, AlertCircle, Plus, CheckCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useNavigate } from 'react-router-dom';
+
+interface Report {
+  id: string;
+  job_id: string;
+  filename: string;
+  file_path?: string;
+  file_size: number;
+  report_type: string;
+  status: string;
+  metadata: {
+    evidence_count: number;
+    protection_status: number;
+    client_name: string;
+    job_type: string;
+    generated_at: string;
+  };
+  created_at: string;
+  updated_at: string;
+}
 
 interface Job {
   id: string;
@@ -20,90 +38,50 @@ interface Job {
   protection_status: number;
 }
 
-interface ReportRecord {
-  id: string;
-  job_id: string;
-  job: Job;
-  title: string;
-  status: 'completed' | 'processing' | 'failed';
-  created_at: string;
-  file_url?: string;
-}
-
 export default function Reports() {
-  const { user, loading, session } = useAuth();
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filterStatus, setFilterStatus] = useState('all');
-  const [jobs, setJobs] = useState<Job[]>([]);
-  const [reports, setReports] = useState<ReportRecord[]>([]);
-  const [isLoadingReports, setIsLoadingReports] = useState(true);
-  const [isGenerating, setIsGenerating] = useState<string | null>(null);
+  const { user, loading } = useAuth();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const [reports, setReports] = useState<Report[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [deleteReportId, setDeleteReportId] = useState<string | null>(null);
+  const [showSuccessMessage, setShowSuccessMessage] = useState(false);
   const { toast } = useToast();
 
+  useEffect(() => {
+    if (user) {
+      loadReports();
+      
+      // Check if user was redirected from report generation
+      if (searchParams.get('generated') === 'true') {
+        setShowSuccessMessage(true);
+        // Clear the URL parameter
+        navigate('/reports', { replace: true });
+      }
+    }
+  }, [user, searchParams, navigate]);
+
+  // Handle conditional rendering after all hooks
   if (loading) {
     return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
   }
 
   if (!user) {
-    return <Navigate to="/auth" replace />;
+    return <Navigate to="/signin" replace />;
   }
 
-  useEffect(() => {
-    loadJobs();
-    loadReports();
-  }, [user]);
-
-  const loadJobs = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('jobs')
-        .select('id, client_name, job_type, created_at, protection_status')
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setJobs(data || []);
-    } catch (error) {
-      console.error('Error loading jobs:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to load jobs',
-        variant: 'destructive'
-      });
-    }
-  };
-
   const loadReports = async () => {
-    setIsLoadingReports(true);
     try {
-      // For now, we'll create mock reports based on audit logs
-      // In a real implementation, you'd have a reports table
-      const { data: auditLogs, error } = await supabase
-        .from('audit_logs')
-        .select(`
-          *,
-          jobs (
-            id,
-            client_name,
-            job_type,
-            created_at,
-            protection_status
-          )
-        `)
-        .eq('action', 'report_generated')
+      // Get reports from the reports table
+      const { data: reportsData, error: reportsError } = await (supabase as any)
+        .from('reports')
+        .select('*')
+        .eq('user_id', user?.id)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (reportsError) throw reportsError;
 
-      const mockReports: ReportRecord[] = (auditLogs || []).map((log: any) => ({
-        id: log.id,
-        job_id: log.job_id,
-        job: log.jobs,
-        title: `${log.jobs?.client_name} - Protection Report`,
-        status: 'completed' as const,
-        created_at: log.created_at,
-      }));
-
-      setReports(mockReports);
+      setReports((reportsData as Report[]) || []);
     } catch (error) {
       console.error('Error loading reports:', error);
       toast({
@@ -112,245 +90,343 @@ export default function Reports() {
         variant: 'destructive'
       });
     } finally {
-      setIsLoadingReports(false);
+      setIsLoading(false);
     }
   };
 
-  const generateReport = async (jobId: string, jobName: string) => {
-    if (!session) return;
-    
-    setIsGenerating(jobId);
+  const getProtectionStatusText = (status: number) => {
+    if (status >= 90) return 'Excellent';
+    if (status >= 80) return 'Strong';
+    if (status >= 70) return 'Good';
+    if (status >= 60) return 'Adequate';
+    if (status >= 50) return 'Basic';
+    return 'Limited';
+  };
+
+  const getProtectionStatusColor = (status: number) => {
+    if (status >= 80) return 'bg-green-100 text-green-800';
+    if (status >= 60) return 'bg-yellow-100 text-yellow-800';
+    return 'bg-red-100 text-red-800';
+  };
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
+  const handleViewReport = (report: Report) => {
+    // Navigate to job detail with report view
+    navigate(`/jobs?view=detail&jobId=${report.job_id}&showReport=true`);
+  };
+
+  const handleDownloadReport = async (report: Report) => {
     try {
-      const { data, error } = await supabase.functions.invoke('generate-pdf-report', {
-        headers: {
-          Authorization: `Bearer ${session.access_token}`
-        },
-        body: { job_id: jobId }
+      // If report has a file_path, download from storage
+      if (report.file_path) {
+        // Check if file_path already includes user ID (new format) or just filename (old format)
+        const filePath = report.file_path.includes('/') ? report.file_path : `${user?.id}/${report.file_path}`;
+        console.log('Downloading from path:', filePath);
+        console.log('User ID:', user?.id);
+        
+        const { data, error } = await supabase.storage
+          .from('reports')
+          .download(filePath);
+
+        if (error) throw error;
+
+        // Create download link
+        const url = URL.createObjectURL(data);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = report.filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+
+        toast({
+          title: 'Report Downloaded',
+          description: 'The PDF report has been downloaded successfully',
+        });
+      } else {
+        // Fallback: Generate a fresh report for download
+        const { data, error } = await supabase.functions.invoke('generate-pdf-report', {
+          body: { job_id: report.job_id }
+        });
+
+        if (error) throw error;
+
+        if (data.success && data.pdf_bytes) {
+          // Convert the PDF bytes array back to Uint8Array
+          const pdfBytes = new Uint8Array(data.pdf_bytes);
+          
+          // Create a blob from the PDF bytes
+          const pdfBlob = new Blob([pdfBytes], { type: 'application/pdf' });
+          
+          // Create a download link
+          const url = URL.createObjectURL(pdfBlob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = data.filename;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          URL.revokeObjectURL(url);
+
+          toast({
+            title: 'Report Downloaded',
+            description: 'The PDF report has been downloaded successfully',
+          });
+        } else {
+          throw new Error('No PDF data available for download');
+        }
+      }
+    } catch (error: any) {
+      console.error('Error downloading report:', error);
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to download report',
+        variant: 'destructive'
       });
+    }
+  };
+
+  const handleDeleteReport = async (reportId: string) => {
+    try {
+      // Delete the report from the reports table
+      const { error } = await (supabase as any)
+        .from('reports')
+        .delete()
+        .eq('id', reportId);
 
       if (error) throw error;
 
-      if (data?.html_content) {
-        // Use the browser's print functionality to create PDF
-        const printWindow = window.open('', '_blank');
-        if (printWindow) {
-          printWindow.document.write(data.html_content);
-          printWindow.document.close();
-          
-          // Wait for content to load then trigger print
-          printWindow.onload = () => {
-            printWindow.print();
-          };
-        }
-      }
-
       toast({
-        title: 'Report Generated',
-        description: 'PDF report has been generated successfully'
+        title: 'Report deleted',
+        description: 'The report has been successfully deleted.',
       });
-
-      // Refresh reports list
-      loadReports();
+      
+      loadReports(); // Refresh the reports list
     } catch (error: any) {
-      console.error('Error generating report:', error);
+      console.error('Error deleting report:', error);
       toast({
         title: 'Error',
-        description: error.message || 'Failed to generate report',
+        description: error.message || 'Failed to delete report',
         variant: 'destructive'
       });
-    } finally {
-      setIsGenerating(null);
     }
+    setDeleteReportId(null);
   };
 
-  const downloadExistingReport = async (reportId: string, jobName: string) => {
-    // For existing reports, we'll regenerate them
-    const report = reports.find(r => r.id === reportId);
-    if (report) {
-      await generateReport(report.job_id, jobName);
-    }
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'completed':
-        return 'default';
-      case 'processing':
-        return 'secondary';
-      case 'failed':
-        return 'destructive';
-      default:
-        return 'outline';
-    }
-  };
-
-  const filteredReports = reports.filter(report => {
-    const matchesSearch = report.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         report.job?.client_name?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesFilter = filterStatus === 'all' || report.status === filterStatus;
-    return matchesSearch && matchesFilter;
-  });
+  if (isLoading) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center p-8">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+            <p>Loading reports...</p>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>
-      <div className="p-6 space-y-6">
+      <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
         {/* Header */}
         <div className="flex flex-col space-y-2">
-          <h1 className="text-3xl font-bold tracking-tight">Reports</h1>
-          <p className="text-muted-foreground">
-            Generate and download PDF reports for your jobs and evidence collection
+          <h1 
+            className="font-bold tracking-tight"
+            style={{ fontSize: 'clamp(1.5rem, 4vw, 2.5rem)' }}
+          >
+            Generated Reports
+          </h1>
+          <p 
+            className="text-muted-foreground"
+            style={{ fontSize: 'clamp(0.875rem, 2.5vw, 1rem)' }}
+          >
+            View and manage your professional PDF reports
           </p>
         </div>
 
-        {/* Generate Reports for Jobs */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5" />
-              Generate New Report
-            </CardTitle>
-            <CardDescription>
-              Create PDF reports for your jobs
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {jobs.slice(0, 5).map((job) => (
-                <div key={job.id} className="flex items-center justify-between p-4 border rounded-lg">
-                  <div>
-                    <h3 className="font-medium">{job.client_name}</h3>
-                    <p className="text-sm text-muted-foreground">
-                      {job.job_type.replace('_', ' ')} • {job.protection_status}% protected
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Created: {new Date(job.created_at).toLocaleDateString()}
-                    </p>
-                  </div>
-                  <Button 
-                    onClick={() => generateReport(job.id, job.client_name)}
-                    disabled={isGenerating === job.id}
-                    className="flex items-center gap-2"
-                  >
-                    {isGenerating === job.id ? (
-                      <RefreshCw className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Download className="h-4 w-4" />
-                    )}
-                    Generate PDF
-                  </Button>
-                </div>
-              ))}
-              {jobs.length === 0 && (
-                <p className="text-center text-muted-foreground py-8">
-                  No jobs found. Create a job first to generate reports.
-                </p>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Filters and Search */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Filter className="h-5 w-5" />
-                Filter Reports
-              </div>
-              <Button variant="outline" size="sm" onClick={loadReports} disabled={isLoadingReports}>
-                <RefreshCw className={`h-4 w-4 mr-2 ${isLoadingReports ? 'animate-spin' : ''}`} />
-                Refresh
-              </Button>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="search">Search Reports</Label>
-                <div className="relative">
-                  <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="search"
-                    placeholder="Search by client name or job..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-8"
-                  />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="status">Filter by Status</Label>
-                <Select value={filterStatus} onValueChange={setFilterStatus}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Reports</SelectItem>
-                    <SelectItem value="completed">Completed</SelectItem>
-                    <SelectItem value="processing">Processing</SelectItem>
-                    <SelectItem value="failed">Failed</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Generated Reports List */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Generated Reports</CardTitle>
-            <CardDescription>
-              Your previously generated reports
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {isLoadingReports ? (
-              <div className="flex items-center justify-center py-8">
-                <RefreshCw className="h-6 w-6 animate-spin mr-2" />
-                Loading reports...
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {filteredReports.map((report) => (
-                  <div key={report.id} className="border rounded-lg p-4 space-y-3">
-                    <div className="flex items-start justify-between">
-                      <div className="space-y-1">
-                        <h3 className="font-medium">{report.title}</h3>
-                        <p className="text-sm text-muted-foreground">
-                          Job: {report.job?.job_type?.replace('_', ' ')} • {report.job?.protection_status}% protected
-                        </p>
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <span>Generated on {new Date(report.created_at).toLocaleDateString()}</span>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Badge variant={getStatusColor(report.status)}>
-                          {report.status}
-                        </Badge>
-                        {report.status === 'completed' && (
-                          <Button 
-                            size="sm" 
-                            variant="outline"
-                            onClick={() => downloadExistingReport(report.id, report.job?.client_name || 'Report')}
-                          >
-                            <Download className="h-3 w-3 mr-1" />
-                            Download PDF
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-                {filteredReports.length === 0 && !isLoadingReports && (
-                  <p className="text-center text-muted-foreground py-8">
-                    No reports found. Generate your first report above.
+        {/* Success Message */}
+        {showSuccessMessage && (
+          <Card className="border-green-200 bg-green-50">
+            <CardContent className="p-4">
+              <div className="flex items-center space-x-3">
+                <CheckCircle className="h-5 w-5 text-green-600" />
+                <div>
+                  <h3 className="font-semibold text-green-900">Report Generated Successfully!</h3>
+                  <p className="text-sm text-green-800">
+                    Your PDF report has been generated and saved. You can now view, download, or delete it from this page.
                   </p>
-                )}
+                </div>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => setShowSuccessMessage(false)}
+                  className="ml-auto text-green-600 hover:text-green-700"
+                >
+                  ×
+                </Button>
               </div>
-            )}
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Reports List */}
+        {reports.length === 0 ? (
+          <Card>
+            <CardContent className="text-center py-12">
+              <FileText className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+              <h3 
+                className="font-semibold mb-2"
+                style={{ fontSize: 'clamp(1.125rem, 3vw, 1.25rem)' }}
+              >
+                No reports generated yet
+              </h3>
+              <p 
+                className="text-muted-foreground mb-6"
+                style={{ fontSize: 'clamp(0.875rem, 2.5vw, 1rem)' }}
+              >
+                Generate your first professional PDF report from the Jobs page
+              </p>
+              <Button onClick={() => navigate('/jobs')}>
+                <Plus className="h-4 w-4 mr-2" />
+                Go to Jobs
+              </Button>
+            </CardContent>
+          </Card>
+        ) : (
+          <div 
+            className="grid gap-4 sm:gap-6"
+            style={{
+              gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))'
+            }}
+          >
+            {reports.map((report) => (
+              <Card key={report.id} className="hover:shadow-lg transition-shadow">
+                <CardHeader className="pb-3">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1 min-w-0">
+                      <CardTitle 
+                        className="truncate"
+                        style={{ fontSize: 'clamp(1rem, 3vw, 1.125rem)' }}
+                      >
+                        {report.metadata.client_name}
+                      </CardTitle>
+                      <CardDescription 
+                        className="capitalize mt-1"
+                        style={{ fontSize: 'clamp(0.75rem, 2vw, 0.875rem)' }}
+                      >
+                        {report.metadata.job_type.replace('_', ' ')}
+                      </CardDescription>
+                    </div>
+                    <Badge className={getProtectionStatusColor(report.metadata.protection_status)}>
+                      {getProtectionStatusText(report.metadata.protection_status)}
+                    </Badge>
+                  </div>
+                </CardHeader>
+                
+                <CardContent className="space-y-4">
+                  {/* Report Details */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground flex items-center gap-1">
+                        <Shield className="h-3 w-3" />
+                        Protection:
+                      </span>
+                      <span className="font-medium">{report.metadata.protection_status}%</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground flex items-center gap-1">
+                        <FileText className="h-3 w-3" />
+                        Evidence:
+                      </span>
+                      <span className="font-medium">{report.metadata.evidence_count} items</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground flex items-center gap-1">
+                        <Calendar className="h-3 w-3" />
+                        Generated:
+                      </span>
+                      <span>{new Date(report.created_at).toLocaleString('en-GB', {
+                        year: 'numeric',
+                        month: '2-digit',
+                        day: '2-digit',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        second: '2-digit'
+                      })}</span>
+                    </div>
+                    {report.file_size > 0 && (
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">Size:</span>
+                        <span>{formatFileSize(report.file_size)}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="flex gap-2 pt-3 border-t">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => handleViewReport(report)}
+                      className="flex-1"
+                    >
+                      <Eye className="h-4 w-4 mr-2" />
+                      View
+                    </Button>
+                    <Button 
+                      variant="default" 
+                      size="sm" 
+                      onClick={() => handleDownloadReport(report)}
+                      className="flex-1"
+                    >
+                      <Download className="h-4 w-4 mr-2" />
+                      Download
+                    </Button>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={() => setDeleteReportId(report.id)}
+                      className="text-destructive hover:text-destructive"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+
+        {/* Delete Confirmation Dialog */}
+        <AlertDialog open={!!deleteReportId} onOpenChange={() => setDeleteReportId(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete Report</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to delete this report? This action cannot be undone.
+                The report record will be permanently removed from your account.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction 
+                onClick={() => deleteReportId && handleDeleteReport(deleteReportId)}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                Delete Report
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </DashboardLayout>
   );

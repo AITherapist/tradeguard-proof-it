@@ -1,19 +1,8 @@
 import { useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
-import { useIsMobile } from "@/hooks/use-mobile";
-import { 
-  Shield, 
-  Briefcase, 
-  BarChart3, 
-  Settings, 
-  Camera, 
-  FileText,
-  User,
-  CreditCard,
-  Home,
-  Menu,
-  X
-} from "lucide-react";
+import { useResponsive } from "@/hooks/use-mobile";
+import { Shield } from "lucide-react";
+import { NAVIGATION_ITEMS, isActiveNavigation } from "@/constants/navigation";
 
 import {
   Sidebar,
@@ -30,34 +19,21 @@ import {
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/components/ui/auth-provider";
 
-const navItems = [
-  { title: "Dashboard", url: "/dashboard", icon: Home },
-  { title: "Jobs", url: "/jobs", icon: Briefcase },
-  { title: "Analytics", url: "/analytics", icon: BarChart3 },
-  { title: "Reports", url: "/reports", icon: FileText },
-  { title: "Settings", url: "/settings", icon: Settings },
-];
-
 export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
   const location = useLocation();
   const { signOut } = useAuth();
   const currentPath = location.pathname;
-  const isMobile = useIsMobile();
+  const { isMobile, isTablet } = useResponsive();
 
-  // Only show on desktop devices
-  if (isMobile) return null;
-
-  const isActive = (path: string) => {
-    if (path === "/dashboard") {
-      return currentPath === path;
-    }
-    return currentPath.startsWith(path);
-  };
+  // Only show on desktop devices (not mobile or tablet)
+  if (isMobile || isTablet) return null;
 
   const getNavCls = (path: string) =>
-    isActive(path) ? "bg-accent text-accent-foreground font-medium" : "hover:bg-accent/50";
+    isActiveNavigation(currentPath, path) 
+      ? "bg-accent text-accent-foreground font-medium" 
+      : "hover:bg-accent/50";
 
   return (
     <Sidebar
@@ -76,7 +52,7 @@ export function AppSidebar() {
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
-              {navItems.map((item) => (
+              {NAVIGATION_ITEMS.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild>
                     <NavLink to={item.url} className={getNavCls(item.url)}>

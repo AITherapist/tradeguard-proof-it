@@ -1,49 +1,81 @@
 import { NavLink, useLocation } from "react-router-dom";
-import { Home, Briefcase, BarChart3, Settings, Camera } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useIsMobile } from "@/hooks/use-mobile";
-
-const navItems = [
-  { title: "Dashboard", url: "/dashboard", icon: Home },
-  { title: "Jobs", url: "/jobs", icon: Briefcase },
-  { title: "Evidence", url: "/evidence", icon: Camera },
-  { title: "Analytics", url: "/analytics", icon: BarChart3 },
-  { title: "Settings", url: "/settings", icon: Settings },
-];
+import { useResponsive } from "@/hooks/use-mobile";
+import { useEffect } from "react";
+import { NAVIGATION_ITEMS, isActiveNavigation } from "@/constants/navigation";
 
 export function MobileBottomNav() {
   const location = useLocation();
-  const isMobile = useIsMobile();
+  const { isMobile, isTablet, breakpoint } = useResponsive();
 
-  // Only show on mobile/tablet devices
-  if (!isMobile) return null;
-
-  const isActive = (path: string) => {
-    if (path === "/dashboard") {
-      return location.pathname === path;
+  // Ensure the navigation stays fixed and doesn't move
+  useEffect(() => {
+    const navElement = document.querySelector('[data-mobile-nav]') as HTMLElement;
+    if (navElement) {
+      navElement.style.position = 'fixed';
+      navElement.style.bottom = '0';
+      navElement.style.left = '0';
+      navElement.style.right = '0';
+      navElement.style.zIndex = '50';
     }
-    return location.pathname.startsWith(path);
-  };
+  }, [location.pathname]);
+
+  // Show on mobile and small tablets, hide on larger screens
+  if (!isMobile && !isTablet) return null;
+
+  const isActive = (path: string) => isActiveNavigation(location.pathname, path);
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border">
-      <nav className="flex items-center justify-around py-2">
-        {navItems.map((item) => {
+    <div 
+      data-mobile-nav
+      className="fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border transform-gpu will-change-transform" 
+      style={{ 
+        position: 'fixed', 
+        bottom: 0, 
+        left: 0, 
+        right: 0, 
+        zIndex: 50,
+        transform: 'translateZ(0)',
+        backfaceVisibility: 'hidden',
+        // Fluid padding that scales with viewport
+        paddingBottom: 'env(safe-area-inset-bottom, 0px)'
+      }}
+    >
+      <nav className="flex items-center justify-around py-2 sm:py-3">
+        {NAVIGATION_ITEMS.map((item) => {
           const active = isActive(item.url);
           return (
             <NavLink
               key={item.title}
               to={item.url}
               className={cn(
-                "flex flex-col items-center justify-center min-w-0 flex-1 py-2 px-1",
-                "text-xs font-medium transition-colors",
+                "flex flex-col items-center justify-center min-w-0 flex-1",
+                // Fluid padding and spacing
+                "py-2 px-1 sm:py-3 sm:px-2",
+                // Responsive text size
+                "text-xs sm:text-sm font-medium transition-colors",
                 active 
                   ? "text-primary" 
                   : "text-muted-foreground hover:text-foreground"
               )}
             >
-              <item.icon className={cn("h-5 w-5 mb-1", active && "text-primary")} />
-              <span className="truncate">{item.title}</span>
+              <item.icon 
+                className={cn(
+                  "mb-1 transition-colors",
+                  // Fluid icon sizing
+                  "h-4 w-4 sm:h-5 sm:w-5",
+                  active && "text-primary"
+                )} 
+              />
+              <span 
+                className="truncate"
+                style={{
+                  // Fluid font size using clamp
+                  fontSize: 'clamp(0.75rem, 2vw, 0.875rem)'
+                }}
+              >
+                {item.title}
+              </span>
             </NavLink>
           );
         })}

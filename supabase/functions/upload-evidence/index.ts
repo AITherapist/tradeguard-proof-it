@@ -19,6 +19,16 @@ async function generateFileHash(fileData: ArrayBuffer): Promise<string> {
   return hashHex;
 }
 
+// Generate separate hash for signature data
+async function generateSignatureHash(signatureData: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(signatureData);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  return hashHex;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -54,6 +64,8 @@ serve(async (req) => {
     const gpsAccuracy = formData.get('gpsAccuracy') as string;
     const clientApproval = formData.get('clientApproval') === 'true';
     const clientSignature = formData.get('clientSignature') as string;
+    const clientName = formData.get('clientName') as string;
+    const clientDesignation = formData.get('clientDesignation') as string;
 
     if (!file || !jobId || !evidenceType || !description) {
       throw new Error("Missing required fields: file, jobId, evidenceType, description");
@@ -87,8 +99,11 @@ serve(async (req) => {
     logStep("File hash generated", { hash: fileHash });
 
     // Upload file to Supabase Storage
-    const fileName = `${jobId}/${Date.now()}-${file.name}`;
-    const filePath = `${user.id}/${fileName}`;
+    // Create a cleaner file path structure to avoid nested paths
+    const timestamp = Date.now();
+    const sanitizedFileName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+    const fileName = `${timestamp}-${sanitizedFileName}`;
+    const filePath = `${user.id}/${jobId}/${fileName}`;
     
     const { data: uploadData, error: uploadError } = await supabaseClient.storage
       .from('evidence')
@@ -103,6 +118,13 @@ serve(async (req) => {
 
     logStep("File uploaded to storage", { path: uploadData.path });
 
+    // Generate signature hash if signature exists
+    let signatureHash = null;
+    if (clientSignature) {
+      signatureHash = await generateSignatureHash(clientSignature);
+      logStep("Signature hash generated", { hash: signatureHash });
+    }
+
     // Store evidence record in database
     const evidenceData = {
       job_id: jobId,
@@ -116,6 +138,9 @@ serve(async (req) => {
       device_timestamp: new Date().toISOString(),
       client_approval: clientApproval,
       client_signature: clientSignature || null,
+      signature_hash: signatureHash,
+      client_name: clientName || null,
+      client_designation: clientDesignation || null,
     };
 
     const { data: evidence, error: evidenceError } = await supabaseClient
@@ -143,7 +168,10 @@ serve(async (req) => {
           evidence_id: evidence.id,
           evidence_type: evidenceType,
           file_hash: fileHash,
+          signature_hash: signatureHash,
           has_gps: !!(gpsLatitude && gpsLongitude),
+          has_signature: !!clientSignature,
+          has_client_info: !!(clientName || clientDesignation),
           file_size: file.size,
         },
         ip_address: req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip'),
@@ -152,17 +180,24 @@ serve(async (req) => {
 
     logStep("Audit log created");
 
+    // Update storage usage after successful upload
+    try {
+      await supabaseClient.rpc('update_storage_usage', { p_user_id: user.id });
+      logStep("Storage usage updated");
+    } catch (storageError) {
+      logStep("Storage usage update failed", { error: storageError.message });
+      // Don't fail the upload if storage tracking fails
+    }
+
     // Start blockchain timestamping in background (fire and forget)
-    const timestampRequest = fetch(`${req.headers.get("origin")?.replace("http", "ws") || ""}/functions/v1/create-timestamp`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': authHeader,
-      },
-      body: JSON.stringify({
+    const timestampRequest = supabaseClient.functions.invoke('create-timestamp', {
+      body: {
         evidence_id: evidence.id,
         file_hash: fileHash,
-      }),
+      },
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
     }).catch(err => {
       console.error('Background timestamping failed:', err);
     });

@@ -62,6 +62,50 @@ export type Database = {
           },
         ]
       }
+      clients: {
+        Row: {
+          id: string
+          user_id: string
+          name: string
+          phone: string | null
+          address: string
+          email: string | null
+          notes: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          name: string
+          phone?: string | null
+          address: string
+          email?: string | null
+          notes?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          name?: string
+          phone?: string | null
+          address?: string
+          email?: string | null
+          notes?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clients_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
       evidence_items: {
         Row: {
           blockchain_timestamp: string | null
@@ -127,6 +171,7 @@ export type Database = {
       jobs: {
         Row: {
           client_address: string
+          client_id: string | null
           client_name: string
           client_phone: string | null
           completion_date: string | null
@@ -143,6 +188,7 @@ export type Database = {
         }
         Insert: {
           client_address: string
+          client_id?: string | null
           client_name: string
           client_phone?: string | null
           completion_date?: string | null
@@ -159,6 +205,7 @@ export type Database = {
         }
         Update: {
           client_address?: string
+          client_id?: string | null
           client_name?: string
           client_phone?: string | null
           completion_date?: string | null
@@ -175,6 +222,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "jobs_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "jobs_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
@@ -186,6 +240,9 @@ export type Database = {
       profiles: {
         Row: {
           address: string | null
+          billing_popup_dismissed: boolean | null
+          billing_popup_shown_at: string | null
+          billing_setup_completed: boolean | null
           company_name: string | null
           created_at: string
           customer_id: string | null
@@ -201,6 +258,9 @@ export type Database = {
         }
         Insert: {
           address?: string | null
+          billing_popup_dismissed?: boolean | null
+          billing_popup_shown_at?: string | null
+          billing_setup_completed?: boolean | null
           company_name?: string | null
           created_at?: string
           customer_id?: string | null
@@ -216,6 +276,9 @@ export type Database = {
         }
         Update: {
           address?: string | null
+          billing_popup_dismissed?: boolean | null
+          billing_popup_shown_at?: string | null
+          billing_setup_completed?: boolean | null
           company_name?: string | null
           created_at?: string
           customer_id?: string | null

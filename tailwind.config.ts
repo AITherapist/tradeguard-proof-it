@@ -12,6 +12,14 @@ export default {
         "2xl": "1400px",
       },
     },
+    screens: {
+      'xs': '20rem',    // 320px
+      'sm': '30rem',    // 480px
+      'md': '48rem',    // 768px
+      'lg': '64rem',    // 1024px
+      'xl': '80rem',    // 1280px
+      '2xl': '90rem',   // 1440px
+    },
     extend: {
       colors: {
         border: "hsl(var(--border))",

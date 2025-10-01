@@ -22,10 +22,10 @@ const Index = () => {
           
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-16">
             <Button asChild size="lg" className="bg-gradient-to-r from-primary to-primary-glow text-lg px-8 py-6">
-              <Link to="/auth">Start 7-Day Free Trial</Link>
+              <Link to="/signup">Start 7-Day Free Trial</Link>
             </Button>
             <Button asChild variant="outline" size="lg" className="text-lg px-8 py-6">
-              <Link to="/auth">Sign In</Link>
+              <Link to="/signin">Sign In</Link>
             </Button>
           </div>
 

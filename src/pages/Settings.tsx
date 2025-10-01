@@ -8,23 +8,24 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
-import { User, CreditCard, Shield, Bell, Settings as SettingsIcon, RefreshCw, ExternalLink, Check, FileText, Lock, Mail } from 'lucide-react';
+import { User, CreditCard, Shield, Bell, Settings as SettingsIcon, RefreshCw, ExternalLink, Check, FileText, Lock, Mail, LogOut, HardDrive } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
 import { GDPRCompliance } from '@/components/gdpr/GDPRCompliance';
+import { StorageManagement } from '@/components/storage/StorageManagement';
 export default function Settings() {
   const {
     user,
     loading,
     session,
     subscription,
-    checkSubscription
+    checkSubscription,
+    signOut
   } = useAuth();
   const [profile, setProfile] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [isRefreshing, setIsRefreshing] = useState(false);
   const [formData, setFormData] = useState({
     company_name: '',
     phone: '',
@@ -40,17 +41,6 @@ export default function Settings() {
     toast
   } = useToast();
 
-  // Redirect if not authenticated
-  if (!loading && !user) {
-    return <Navigate to="/auth" replace />;
-  }
-
-  // Loading state
-  if (loading || !user) {
-    return <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-      </div>;
-  }
   const loadProfile = async () => {
     try {
       const {
@@ -68,11 +58,42 @@ export default function Settings() {
       console.error('Error loading profile:', error);
     }
   };
+
   useEffect(() => {
     if (user) {
       loadProfile();
+      // Automatically refresh subscription status when component mounts
+      checkSubscription();
     }
-  }, [user]);
+  }, [user, checkSubscription]);
+
+  // Check for successful payment redirect and refresh subscription
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('success') === 'true') {
+      // Payment was successful, refresh subscription status
+      setTimeout(() => {
+        checkSubscription();
+        toast({
+          title: 'Payment successful!',
+          description: 'Your subscription has been activated.',
+        });
+        // Clean up URL parameters
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }, 2000);
+    }
+  }, [checkSubscription, toast]);
+
+  // Handle conditional rendering after all hooks
+  if (!loading && !user) {
+    return <Navigate to="/signin" replace />;
+  }
+
+  if (loading || !user) {
+    return <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>;
+  }
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -170,7 +191,7 @@ export default function Settings() {
     
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(user.email, {
-        redirectTo: `${window.location.origin}/auth`
+        redirectTo: `${window.location.origin}/signin`
       });
       
       if (error) throw error;
@@ -188,25 +209,6 @@ export default function Settings() {
       });
     }
   };
-  const handleRefreshSubscription = async () => {
-    setIsRefreshing(true);
-    try {
-      await checkSubscription();
-      toast({
-        title: 'Subscription refreshed',
-        description: 'Your subscription status has been updated'
-      });
-    } catch (error) {
-      console.error('Error refreshing subscription:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to refresh subscription status',
-        variant: 'destructive'
-      });
-    } finally {
-      setIsRefreshing(false);
-    }
-  };
   const handleManageBilling = async () => {
     if (!session) return;
     try {
@@ -219,14 +221,27 @@ export default function Settings() {
         }
       });
       if (error) throw error;
+      
+      if (data?.needsConfiguration) {
+        toast({
+          title: 'Billing Portal Not Configured',
+          description: 'Please contact support to manage your subscription. The billing portal needs to be set up.',
+          variant: 'destructive'
+        });
+        return;
+      }
+      
       if (data?.url) {
         window.open(data.url, '_blank');
+        setTimeout(() => {
+          checkSubscription();
+        }, 5000);
       }
     } catch (error: any) {
       console.error('Error opening customer portal:', error);
       toast({
         title: 'Error',
-        description: 'Failed to open billing management',
+        description: error.message || 'Failed to open billing portal. Please contact support.',
         variant: 'destructive'
       });
     }
@@ -247,7 +262,7 @@ export default function Settings() {
       if (data?.url) {
         window.open(data.url, '_blank');
         setTimeout(() => {
-          handleRefreshSubscription();
+          checkSubscription();
         }, 5000);
       }
     } catch (error: any) {
@@ -280,9 +295,9 @@ export default function Settings() {
               <CreditCard className="h-4 w-4" />
               Subscription
             </TabsTrigger>
-            <TabsTrigger value="billing" className="flex items-center gap-2">
-              <SettingsIcon className="h-4 w-4" />
-              Billing
+            <TabsTrigger value="storage" className="flex items-center gap-2">
+              <HardDrive className="h-4 w-4" />
+              Storage
             </TabsTrigger>
             <TabsTrigger value="gdpr" className="flex items-center gap-2">
               <FileText className="h-4 w-4" />
@@ -299,7 +314,7 @@ export default function Settings() {
               <CardHeader>
                 <CardTitle>Profile Information</CardTitle>
                 <CardDescription>
-                  Update your account profile and company information
+                  Update your account details and company information
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -416,18 +431,33 @@ export default function Settings() {
                 </form>
               </CardContent>
             </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Account Actions</CardTitle>
+                <CardDescription>
+                  Manage your account session and security
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <Button 
+                    variant="destructive" 
+                    onClick={signOut}
+                    className="w-full sm:w-auto"
+                  >
+                    <LogOut className="mr-2 h-4 w-4" />
+                    Sign Out
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
           </TabsContent>
 
           <TabsContent value="subscription" className="space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center justify-between">
-                  Subscription Overview
-                  <Button variant="outline" size="sm" onClick={handleRefreshSubscription} disabled={isRefreshing}>
-                    <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
-                    Refresh
-                  </Button>
-                </CardTitle>
+                <CardTitle>Subscription Overview</CardTitle>
                 <CardDescription>
                   View your current subscription status and manage your plan
                 </CardDescription>
@@ -441,7 +471,7 @@ export default function Settings() {
                       {subscription?.subscribed ? 'Premium Plan' : subscription?.in_trial ? 'Free Trial' : 'No Subscription'}
                     </p>
                   </div>
-                  <Badge variant={subscription?.subscribed ? 'default' : 'secondary'}>
+                  <Badge variant={subscription?.subscribed ? 'default' : subscription?.in_trial ? 'secondary' : 'destructive'}>
                     {subscription?.subscribed ? 'ACTIVE' : subscription?.in_trial ? 'TRIAL' : 'INACTIVE'}
                   </Badge>
                 </div>
@@ -457,23 +487,34 @@ export default function Settings() {
                       </div>
                       <div>
                         <Label className="text-sm font-medium">
-                          {subscription.in_trial ? 'Trial Ends' : 'Next Billing'}
+                          {subscription.in_trial ? 'Trial Ends' : subscription.subscribed ? 'Next Billing' : 'Status'}
                         </Label>
                         <p className="text-sm text-muted-foreground">
                           {subscription.subscription_end ? new Date(subscription.subscription_end).toLocaleDateString() : 'N/A'}
                         </p>
                       </div>
                     </div>
+                    
                   </div>}
 
                 <Separator />
 
                 {/* Upgrade Action */}
-                {!subscription?.subscribed && (
+                {!subscription?.subscribed && !subscription?.in_trial && (
                   <div className="text-center">
                     <Button onClick={handleCreateCheckout} disabled={isLoading} size="lg">
                       <CreditCard className="h-4 w-4 mr-2" />
-                      {subscription?.in_trial ? 'Upgrade to Premium (£99/month)' : 'Start Free Trial'}
+                      Upgrade to Premium
+                    </Button>
+                  </div>
+                )}
+
+                {/* Trial to Premium Upgrade */}
+                {subscription?.in_trial && !subscription?.subscribed && (
+                  <div className="text-center">
+                    <Button onClick={handleCreateCheckout} disabled={isLoading} size="lg">
+                      <CreditCard className="h-4 w-4 mr-2" />
+                      Upgrade to Premium
                     </Button>
                   </div>
                 )}
@@ -506,9 +547,8 @@ export default function Settings() {
                 </div>
               </CardContent>
             </Card>
-          </TabsContent>
 
-          <TabsContent value="billing" className="space-y-6">
+            {/* Billing Management Section */}
             <Card>
               <CardHeader>
                 <CardTitle>Billing Management</CardTitle>
@@ -517,16 +557,26 @@ export default function Settings() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-                {subscription?.subscribed ? (
+                {(subscription?.subscribed || subscription?.in_trial) ? (
                   <div className="space-y-4">
                     <div className="flex items-center justify-between p-4 border rounded-lg">
                       <div>
-                        <h3 className="font-semibold">Active Subscription</h3>
+                        <h3 className="font-semibold">
+                          {subscription?.subscribed ? 'Active Subscription' : 'Trial Subscription'}
+                        </h3>
                         <p className="text-sm text-muted-foreground">
-                          TradeGuard Pro - £99.00/month
+                          Bluhatch Pro - £99.00/month
+                          {subscription?.in_trial && ' (Trial)'}
                         </p>
+                        {subscription?.subscription_end && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {subscription.subscribed ? 'Next billing' : 'Trial ends'}: {new Date(subscription.subscription_end).toLocaleDateString()}
+                          </p>
+                        )}
                       </div>
-                      <Badge variant="default">ACTIVE</Badge>
+                      <Badge variant={subscription?.subscribed ? 'default' : 'secondary'}>
+                        {subscription?.subscribed ? 'ACTIVE' : 'TRIAL'}
+                      </Badge>
                     </div>
 
                     <div className="flex flex-col sm:flex-row gap-3">
@@ -534,35 +584,33 @@ export default function Settings() {
                         <ExternalLink className="h-4 w-4 mr-2" />
                         Manage Subscription
                       </Button>
-                      <Button onClick={handleManageBilling} variant="outline">
-                        <SettingsIcon className="h-4 w-4 mr-2" />
-                        Update Payment Method
-                      </Button>
-                    </div>
-
-                    <Separator />
-
-                    <div className="space-y-2">
-                      <h4 className="font-medium">Billing Information</h4>
-                      <p className="text-sm text-muted-foreground">
-                        Access your billing portal to view invoices, update payment methods, and manage your subscription.
-                      </p>
                     </div>
                   </div>
                 ) : (
                   <div className="text-center py-8">
-                    <h3 className="font-semibold mb-2">No Active Subscription</h3>
+                    <h3 className="font-semibold mb-2">No Billing Information</h3>
                     <p className="text-sm text-muted-foreground mb-4">
-                      Subscribe to Premium to access billing management features.
+                      Add your billing details to continue after your trial period.
                     </p>
                     <Button onClick={handleCreateCheckout} disabled={isLoading}>
                       <CreditCard className="h-4 w-4 mr-2" />
-                      Subscribe to Premium
+                      Add Billing Details
                     </Button>
                   </div>
                 )}
               </CardContent>
             </Card>
+          </TabsContent>
+
+
+          <TabsContent value="storage" className="space-y-6">
+            <div>
+              <h2 className="text-2xl font-bold">Storage Management</h2>
+              <p className="text-muted-foreground">
+                Monitor and manage your storage usage
+              </p>
+            </div>
+            <StorageManagement />
           </TabsContent>
 
 

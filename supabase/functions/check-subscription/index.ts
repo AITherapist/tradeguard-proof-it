@@ -54,23 +54,62 @@ serve(async (req) => {
     
     if (profileError) {
       logStep("Profile update error (continuing)", { error: profileError.message });
+      // If profile creation fails, we can still continue with Stripe check
     }
 
     const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
-    const customers = await stripe.customers.list({ email: user.email, limit: 1 });
+    
+    let customers;
+    try {
+      customers = await stripe.customers.list({ email: user.email, limit: 1 });
+    } catch (stripeError) {
+      logStep("Stripe API error", { error: stripeError.message });
+      throw new Error(`Stripe API error: ${stripeError.message}`);
+    }
     
     if (customers.data.length === 0) {
       logStep("No customer found, checking trial status");
       
       // Check profile for trial information
-      const { data: profile } = await supabaseClient
+      const { data: profile, error: profileError } = await supabaseClient
         .from('profiles')
         .select('trial_ends_at, subscription_status')
         .eq('user_id', user.id)
         .single();
+      
+      if (profileError) {
+        logStep("Profile query error", { error: profileError.message });
+        // Return default trial status if profile doesn't exist
+        return new Response(JSON.stringify({
+          subscribed: false,
+          product_id: null,
+          subscription_end: null,
+          in_trial: false,
+          customer_id: null
+        }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 200,
+        });
+      }
 
-      const trialEnd = profile?.trial_ends_at ? new Date(profile.trial_ends_at) : null;
-      const inTrial = trialEnd ? new Date() < trialEnd : false;
+      let trialEnd = null;
+      let inTrial = false;
+      
+      if (profile?.trial_ends_at) {
+        try {
+          trialEnd = new Date(profile.trial_ends_at);
+          // Check if the date is valid
+          if (isNaN(trialEnd.getTime())) {
+            logStep("Invalid trial_ends_at date", { trial_ends_at: profile.trial_ends_at });
+            trialEnd = null;
+          } else {
+            inTrial = new Date() < trialEnd;
+          }
+        } catch (error) {
+          logStep("Error parsing trial_ends_at date", { error: error.message, trial_ends_at: profile.trial_ends_at });
+          trialEnd = null;
+        }
+      }
 
       return new Response(JSON.stringify({
         subscribed: false,
@@ -87,75 +126,103 @@ serve(async (req) => {
     const customerId = customers.data[0].id;
     logStep("Found Stripe customer", { customerId });
 
-    const subscriptions = await stripe.subscriptions.list({
-      customer: customerId,
-      status: "active",
-      limit: 1,
-    });
+    // Check for any subscription (active, trialing, or past_due)
+    let allSubscriptions;
+    try {
+      allSubscriptions = await stripe.subscriptions.list({
+        customer: customerId,
+        limit: 10,
+      });
+    } catch (stripeError) {
+      logStep("Stripe subscriptions API error", { error: stripeError.message });
+      throw new Error(`Stripe subscriptions API error: ${stripeError.message}`);
+    }
     
-    let hasActiveSub = subscriptions.data.length > 0;
+    logStep("Found subscriptions", { count: allSubscriptions.data.length });
+    
+    // Find the most recent active or trialing subscription
+    const activeSub = allSubscriptions.data.find(sub => 
+      sub.status === 'active' || sub.status === 'trialing' || sub.status === 'past_due'
+    );
+    
+    let hasActiveSub = false;
     let productId = null;
     let subscriptionEnd = null;
+    let isTrial = false;
 
-    if (hasActiveSub) {
-      const subscription = subscriptions.data[0];
-      subscriptionEnd = new Date(subscription.current_period_end * 1000).toISOString();
-      logStep("Active subscription found", { subscriptionId: subscription.id, endDate: subscriptionEnd });
-      productId = subscription.items.data[0].price.product;
-      logStep("Determined subscription tier", { productId });
+    if (activeSub) {
+      hasActiveSub = true;
+      
+      // Safely handle subscription end date
+      try {
+        if (activeSub.current_period_end && typeof activeSub.current_period_end === 'number') {
+          const endDate = new Date(activeSub.current_period_end * 1000);
+          if (!isNaN(endDate.getTime())) {
+            subscriptionEnd = endDate.toISOString();
+          } else {
+            logStep("Invalid current_period_end timestamp", { current_period_end: activeSub.current_period_end });
+          }
+        }
+      } catch (error) {
+        logStep("Error parsing subscription end date", { error: error.message, current_period_end: activeSub.current_period_end });
+      }
+      
+      productId = activeSub.items.data[0]?.price?.product;
+      isTrial = activeSub.status === 'trialing';
+      
+      logStep("Found subscription", { 
+        subscriptionId: activeSub.id, 
+        status: activeSub.status,
+        endDate: subscriptionEnd,
+        isTrial 
+      });
 
       // Update profile with subscription data
-      const { error: updateError } = await supabaseClient
-        .from('profiles')
-        .update({
-          subscription_status: 'active' as any,
-          customer_id: customerId,
-          subscription_id: subscription.id,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('user_id', user.id);
-      
-      if (updateError) {
-        logStep("Profile update error (continuing)", { error: updateError.message });
+      try {
+        const { error: updateError } = await supabaseClient
+          .from('profiles')
+          .update({
+            subscription_status: activeSub.status as any,
+            customer_id: customerId,
+            subscription_id: activeSub.id,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('user_id', user.id);
+        
+        if (updateError) {
+          logStep("Profile update error (continuing)", { error: updateError.message });
+        }
+      } catch (dbError) {
+        logStep("Database update error (continuing)", { error: dbError.message });
       }
     } else {
       logStep("No active subscription found");
       
-      // Check for trial subscription
-      const trialSubs = await stripe.subscriptions.list({
-        customer: customerId,
-        status: "trialing",
-        limit: 1,
-      });
-
-      if (trialSubs.data.length > 0) {
-        const trialSub = trialSubs.data[0];
-        subscriptionEnd = new Date(trialSub.trial_end! * 1000).toISOString();
-        hasActiveSub = true; // Trial counts as active access
-        logStep("Trial subscription found", { trialEnd: subscriptionEnd });
-      }
-
-      // Update profile
-      const { error: profileUpdateError } = await supabaseClient
-        .from('profiles')
-        .update({
-          subscription_status: (trialSubs.data.length > 0 ? 'trialing' : 'trial') as any,
-          customer_id: customerId,
-          subscription_id: trialSubs.data.length > 0 ? trialSubs.data[0].id : null,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('user_id', user.id);
-      
-      if (profileUpdateError) {
-        logStep("Profile update error (continuing)", { error: profileUpdateError.message });
+      // Update profile to inactive
+      try {
+        const { error: profileUpdateError } = await supabaseClient
+          .from('profiles')
+          .update({
+            subscription_status: 'inactive' as any,
+            customer_id: customerId,
+            subscription_id: null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('user_id', user.id);
+        
+        if (profileUpdateError) {
+          logStep("Profile update error (continuing)", { error: profileUpdateError.message });
+        }
+      } catch (dbError) {
+        logStep("Database update error (continuing)", { error: dbError.message });
       }
     }
 
     return new Response(JSON.stringify({
-      subscribed: hasActiveSub && subscriptions.data.length > 0,
+      subscribed: hasActiveSub && !isTrial,
       product_id: productId,
       subscription_end: subscriptionEnd,
-      in_trial: subscriptions.data.length === 0 && hasActiveSub,
+      in_trial: isTrial,
       customer_id: customerId
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

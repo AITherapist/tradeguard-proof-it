@@ -21,7 +21,7 @@ export default function Auth() {
   const [companyName, setCompanyName] = useState('');
   const { toast } = useToast();
 
-  // Redirect if already authenticated
+  // Handle conditional rendering after all hooks
   if (!loading && user) {
     return <Navigate to="/dashboard" replace />;
   }
@@ -46,10 +46,10 @@ export default function Auth() {
       return;
     }
 
-    if (!isForgotPassword && password.length < 6) {
+    if (!isForgotPassword && password.length < 8) {
       toast({
         title: "Error", 
-        description: "Password must be at least 6 characters",
+        description: "Password must be at least 8 characters",
         variant: "destructive",
       });
       return;
@@ -60,7 +60,7 @@ export default function Auth() {
     try {
       if (isForgotPassword) {
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
-          redirectTo: `${window.location.origin}/auth?reset=true`,
+          redirectTo: `${window.location.origin}/signin?reset=true`,
         });
 
         if (error) throw error;

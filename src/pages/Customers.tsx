@@ -1,9 +1,9 @@
 import { useAuth } from '@/components/ui/auth-provider';
 import { Navigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
-import { AnalyticsDashboard } from '@/components/analytics/AnalyticsDashboard';
+import { CustomersList } from '@/components/customers/CustomersList';
 
-export default function Analytics() {
+export default function Customers() {
   const { user, loading } = useAuth();
 
   if (loading) {
@@ -11,13 +11,13 @@ export default function Analytics() {
   }
 
   if (!user) {
-    return <Navigate to="/auth" replace />;
+    return <Navigate to="/signin" replace />;
   }
 
   return (
     <DashboardLayout>
-      <div className="container mx-auto px-6 py-8 max-w-6xl">
-        <AnalyticsDashboard />
+      <div className="p-6 space-y-6">
+        <CustomersList />
       </div>
     </DashboardLayout>
   );

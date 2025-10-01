@@ -3,7 +3,7 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/ui/app-sidebar";
 import { MobileBottomNav } from "@/components/ui/mobile-bottom-nav";
 import { useAuth } from "@/components/ui/auth-provider";
-import { useIsMobile } from "@/hooks/use-mobile";
+import { useResponsive } from "@/hooks/use-mobile";
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -11,7 +11,7 @@ interface DashboardLayoutProps {
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {
   const { subscription } = useAuth();
-  const isMobile = useIsMobile();
+  const { isMobile, isTablet } = useResponsive();
 
   return (
     <SidebarProvider>
@@ -22,14 +22,17 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         {/* Main Content */}
         <div className="flex-1 flex flex-col">
           <header className="h-14 border-b bg-card flex items-center px-4 lg:px-6">
-            {!isMobile && <SidebarTrigger />}
+            {!isMobile && !isTablet && <SidebarTrigger />}
             
             <div className="flex-1" />
             
             {/* Subscription Status */}
             <div className="flex items-center gap-2">
               {subscription?.subscription_end && (
-                <div className="text-xs text-muted-foreground hidden sm:block">
+                <div 
+                  className="text-muted-foreground hidden sm:block"
+                  style={{ fontSize: 'clamp(0.75rem, 2vw, 0.875rem)' }}
+                >
                   {subscription.subscribed ? 'Premium Plan' : 'Trial Active'}
                 </div>
               )}
@@ -38,7 +41,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
           {/* Page Content */}
           <main className="flex-1 overflow-auto">
-            <div className={isMobile ? "pb-16" : "pb-0"}>
+            <div className={isMobile || isTablet ? "pb-16" : "pb-0"}>
               {children}
             </div>
           </main>

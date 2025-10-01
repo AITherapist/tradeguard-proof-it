@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -61,7 +62,9 @@ export function JobDetailView({ jobId, onBack }: JobDetailViewProps) {
   const [evidenceStats, setEvidenceStats] = useState<EvidenceStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [showEvidenceCapture, setShowEvidenceCapture] = useState(false);
+  const [isGeneratingReport, setIsGeneratingReport] = useState(false);
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   useEffect(() => {
     fetchJobDetails();
@@ -115,35 +118,54 @@ export function JobDetailView({ jobId, onBack }: JobDetailViewProps) {
   };
 
   const generateReport = async () => {
+    setIsGeneratingReport(true);
     try {
-      const { data, error } = await supabase.functions.invoke('generate-report', {
+      // Call the edge function to generate PDF server-side
+      const { data, error } = await supabase.functions.invoke('generate-pdf-report', {
         body: { job_id: jobId }
       });
 
       if (error) throw error;
 
-      // Create a blob and download the report
-      const blob = new Blob([data], { type: 'text/html' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `job-report-${job?.client_name.replace(/\s+/g, '-').toLowerCase()}-${format(new Date(), 'yyyy-MM-dd')}.html`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      if (data.success && data.pdf_bytes) {
+        // Convert the PDF bytes array back to Uint8Array
+        const pdfBytes = new Uint8Array(data.pdf_bytes);
+        
+        // Create a blob from the PDF bytes
+        const pdfBlob = new Blob([pdfBytes], { type: 'application/pdf' });
+        
+        // Create a download link
+        const url = URL.createObjectURL(pdfBlob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = data.filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
 
-      toast({
-        title: 'Report Generated',
-        description: 'Job report has been downloaded successfully',
-      });
+        toast({
+          title: 'Report Generated Successfully',
+          description: 'Your PDF report has been generated and downloaded. Redirecting to Reports page...',
+        });
+
+        // Small delay to show the success message
+        setTimeout(() => {
+          navigate('/reports?generated=true');
+        }, 1500);
+      } else {
+        throw new Error('No PDF data received from server');
+      }
+
     } catch (error) {
       console.error('Error generating report:', error);
       toast({
         title: 'Error',
-        description: 'Failed to generate report',
+        description: 'Failed to generate report. Please try again.',
         variant: 'destructive',
       });
+    } finally {
+      setIsGeneratingReport(false);
     }
   };
 
@@ -167,6 +189,7 @@ export function JobDetailView({ jobId, onBack }: JobDetailViewProps) {
     return 'Needs Protection';
   };
 
+  // Handle conditional rendering after all hooks
   if (isLoading) {
     return (
       <div className="flex items-center justify-center p-8">
@@ -217,9 +240,17 @@ export function JobDetailView({ jobId, onBack }: JobDetailViewProps) {
           <p className="text-muted-foreground">{job.job_type}</p>
         </div>
         <div className="flex flex-col sm:flex-row gap-2">
-          <Button onClick={generateReport} variant="outline">
-            <Download className="h-4 w-4 mr-2" />
-            Generate Report
+          <Button 
+            onClick={generateReport} 
+            variant="outline" 
+            disabled={isGeneratingReport}
+          >
+            {isGeneratingReport ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <Download className="h-4 w-4 mr-2" />
+            )}
+            {isGeneratingReport ? 'Generating Report...' : 'Generate PDF Report'}
           </Button>
           <Button onClick={() => setShowEvidenceCapture(true)}>
             <Camera className="h-4 w-4 mr-2" />
