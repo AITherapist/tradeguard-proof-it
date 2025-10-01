@@ -13,6 +13,9 @@ import { Shield, Plus, FileText, Camera, CreditCard, Settings, TrendingUp, Clock
 import { RecentJobsCard } from '@/components/dashboard/RecentJobsCard';
 import { JobForm } from '@/components/job/JobForm';
 import { BillingDetailsPopup } from '@/components/billing/BillingDetailsPopup';
+import { TrialExpirationWarning } from '@/components/billing/TrialExpirationWarning';
+import { TrialExpiredBlock } from '@/components/billing/TrialExpiredBlock';
+import { useTrialExpiration } from '@/hooks/use-trial-expiration';
 import { format, subDays, startOfMonth, endOfMonth, isWithinInterval } from 'date-fns';
 interface Job {
   id: string;
@@ -71,10 +74,23 @@ export default function Dashboard() {
   const [jobMetrics, setJobMetrics] = useState<JobMetrics[]>([]);
   const [showBillingPopup, setShowBillingPopup] = useState(false);
   const [isLoadingBilling, setIsLoadingBilling] = useState(false);
+  const [showTrialWarning, setShowTrialWarning] = useState(false);
   const {
     toast
   } = useToast();
   const navigate = useNavigate();
+  
+  // Trial expiration logic
+  const {
+    isExpired,
+    daysLeft,
+    shouldShowWarning,
+    warningLevel,
+    trialEndDate,
+    hasActiveAccess,
+    canAccessFeature,
+    markWarningShown
+  } = useTrialExpiration();
   const handleJobCreated = () => {
     setShowJobForm(false);
     loadJobs(); // Refresh the jobs list
@@ -197,6 +213,13 @@ export default function Dashboard() {
     }
   }, [user, subscription]);
 
+  // Show trial warning when appropriate
+  useEffect(() => {
+    if (shouldShowWarning && !isExpired) {
+      setShowTrialWarning(true);
+    }
+  }, [shouldShowWarning, isExpired]);
+
   // Check if billing popup should be shown
   const checkBillingPopup = async () => {
     if (!user) return;
@@ -305,6 +328,21 @@ export default function Dashboard() {
     }
   };
 
+  // Trial warning handlers
+  const handleTrialWarningClose = () => {
+    setShowTrialWarning(false);
+    markWarningShown(); // Mark as shown for today
+  };
+
+  const handleTrialWarningUpgrade = async () => {
+    setShowTrialWarning(false);
+    markWarningShown(); // Mark as shown for today
+    await handleAddBilling();
+  };
+
+  // Check if user can create new jobs
+  const canCreateJob = canAccessFeature('create_job');
+
   // Handle conditional rendering after all hooks
   if (!loading && !user) {
     return <Navigate to="/signin" replace />;
@@ -314,6 +352,15 @@ export default function Dashboard() {
     return <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
       </div>;
+  }
+
+  // Hard cutoff: If trial is expired, show the expired block
+  if (isExpired && !hasActiveAccess) {
+    return (
+      <TrialExpiredBlock 
+        onUpgrade={handleAddBilling}
+      />
+    );
   }
   const handleCreateCheckout = async () => {
     if (!session) return;
@@ -400,7 +447,6 @@ export default function Dashboard() {
     };
   };
   const statusInfo = getSubscriptionStatus();
-  const hasActiveAccess = subscription?.subscribed || subscription?.in_trial;
 
   const getProtectionBadge = (score: number) => {
     if (score >= 80) return {
@@ -558,8 +604,8 @@ export default function Dashboard() {
           }}
         >
           <Card 
-            className="cursor-pointer hover:shadow-lg transition-shadow" 
-            onClick={() => setShowJobForm(true)}
+            className={`cursor-pointer hover:shadow-lg transition-shadow ${!canCreateJob ? 'opacity-50 cursor-not-allowed' : ''}`}
+            onClick={canCreateJob ? () => setShowJobForm(true) : undefined}
           >
             <CardHeader>
               <CardTitle 
@@ -568,11 +614,16 @@ export default function Dashboard() {
               >
                 <Plus className="h-5 w-5 text-primary" />
                 <span>New Job</span>
+                {!canCreateJob && (
+                  <Badge variant="destructive" className="text-xs">
+                    Trial Expired
+                  </Badge>
+                )}
               </CardTitle>
               <CardDescription 
                 style={{ fontSize: 'clamp(0.75rem, 2vw, 0.875rem)' }}
               >
-                Start documenting a new trade job
+                {canCreateJob ? 'Start documenting a new trade job' : 'Upgrade to create new jobs'}
               </CardDescription>
             </CardHeader>
           </Card>
@@ -731,6 +782,19 @@ export default function Dashboard() {
           onAddBilling={handleAddBilling}
           onSkip={handleSkipBilling}
         />
+
+        {/* Trial Expiration Warning */}
+        {trialEndDate && (
+          <TrialExpirationWarning
+            isOpen={showTrialWarning}
+            onClose={handleTrialWarningClose}
+            onAddBilling={handleTrialWarningUpgrade}
+            daysLeft={daysLeft}
+            trialEndDate={trialEndDate}
+            isExpired={isExpired}
+            onWarningShown={markWarningShown}
+          />
+        )}
       </div>
     </DashboardLayout>;
 }

@@ -6,6 +6,10 @@ import { JobList } from '@/components/job/JobList';
 import { JobForm } from '@/components/job/JobForm';
 import { EvidenceCapture } from '@/components/evidence/EvidenceCapture';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
+import { TrialExpiredBlock } from '@/components/billing/TrialExpiredBlock';
+import { useTrialExpiration } from '@/hooks/use-trial-expiration';
+import { useAuth } from '@/components/ui/auth-provider';
+import { supabase } from '@/integrations/supabase/client';
 import { Plus, ArrowLeft } from 'lucide-react';
 
 type ViewMode = 'list' | 'create' | 'evidence' | 'detail' | 'approval';
@@ -14,6 +18,10 @@ export default function Jobs() {
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [isEvidenceModalOpen, setIsEvidenceModalOpen] = useState(false);
+  
+  // Trial expiration logic
+  const { isExpired, hasActiveAccess, canAccessFeature } = useTrialExpiration();
+  const { session } = useAuth();
 
   const handleJobCreated = () => {
     setViewMode('list');
@@ -43,6 +51,33 @@ export default function Jobs() {
     // This will be called when jobs are updated/deleted
     // The JobList component will handle refreshing its own data
   };
+
+  const handleUpgrade = async () => {
+    if (!session) return;
+    try {
+      const { data, error } = await supabase.functions.invoke('create-checkout', {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        }
+      });
+      
+      if (error) throw error;
+      if (data?.url) {
+        window.location.href = data.url;
+      }
+    } catch (error: any) {
+      console.error('Error creating checkout:', error);
+    }
+  };
+
+  // Hard cutoff: If trial is expired, show the expired block
+  if (isExpired && !hasActiveAccess) {
+    return (
+      <TrialExpiredBlock 
+        onUpgrade={handleUpgrade}
+      />
+    );
+  }
 
   const renderHeader = () => {
     switch (viewMode) {
@@ -84,9 +119,12 @@ export default function Jobs() {
                 </p>
               </div>
               <div className="flex flex-col sm:flex-row gap-2">
-                <Button onClick={() => setViewMode('create')}>
+                <Button 
+                  onClick={() => setViewMode('create')}
+                  disabled={!canAccessFeature('create_job')}
+                >
                   <Plus className="h-4 w-4 mr-2" />
-                  New Job
+                  {canAccessFeature('create_job') ? 'New Job' : 'Trial Expired - Upgrade to Create Jobs'}
                 </Button>
               </div>
             </div>
@@ -98,11 +136,21 @@ export default function Jobs() {
   const renderContent = () => {
     switch (viewMode) {
       case 'create':
-        return (
+        return canAccessFeature('create_job') ? (
           <JobForm 
             onSuccess={handleJobCreated}
             onCancel={() => setViewMode('list')}
           />
+        ) : (
+          <div className="text-center py-8">
+            <h3 className="text-lg font-semibold mb-2">Trial Expired</h3>
+            <p className="text-muted-foreground mb-4">
+              Upgrade to Premium to create new jobs.
+            </p>
+            <Button onClick={handleUpgrade}>
+              Upgrade Now
+            </Button>
+          </div>
         );
       case 'detail':
         return selectedJobId ? (
