@@ -53,30 +53,55 @@ export const SignaturePad = forwardRef<SignaturePadRef, SignaturePadProps>(
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
 
-      // Set canvas size
-      const rect = canvas.getBoundingClientRect();
-      canvas.width = rect.width * window.devicePixelRatio;
-      canvas.height = rect.height * window.devicePixelRatio;
-      ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
-      
-      // Set drawing properties
-      ctx.strokeStyle = '#000000';
-      ctx.lineWidth = 2;
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
+      const initializeCanvas = () => {
+        const rect = canvas.getBoundingClientRect();
+        const dpr = window.devicePixelRatio || 1;
+        
+        // Set canvas size only if not already set or if size has changed significantly
+        const currentWidth = canvas.width / dpr;
+        const currentHeight = canvas.height / dpr;
+        
+        if (Math.abs(currentWidth - rect.width) > 1 || Math.abs(currentHeight - rect.height) > 1) {
+          canvas.width = rect.width * dpr;
+          canvas.height = rect.height * dpr;
+          ctx.scale(dpr, dpr);
+          
+          // Set drawing properties
+          ctx.strokeStyle = '#000000';
+          ctx.lineWidth = 2;
+          ctx.lineCap = 'round';
+          ctx.lineJoin = 'round';
 
-      // Fill with white background
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+          // Fill with white background
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, rect.width, rect.height);
+        }
+      };
 
-      // Load existing signature if provided
-      if (existingSignature) {
+      // Initialize canvas
+      initializeCanvas();
+
+      // Load existing signature if provided (only once)
+      if (existingSignature && !canvas.dataset.loaded) {
         const img = new Image();
         img.onload = () => {
+          const rect = canvas.getBoundingClientRect();
+          ctx.clearRect(0, 0, rect.width, rect.height);
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, rect.width, rect.height);
           ctx.drawImage(img, 0, 0, rect.width, rect.height);
+          canvas.dataset.loaded = 'true';
         };
         img.src = existingSignature;
       }
+
+      // Handle window resize
+      const handleResize = () => {
+        initializeCanvas();
+      };
+
+      window.addEventListener('resize', handleResize);
+      return () => window.removeEventListener('resize', handleResize);
     }, [existingSignature]);
 
     const getEventPos = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
@@ -141,9 +166,13 @@ export const SignaturePad = forwardRef<SignaturePadRef, SignaturePadProps>(
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
 
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      const rect = canvas.getBoundingClientRect();
+      ctx.clearRect(0, 0, rect.width, rect.height);
       ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillRect(0, 0, rect.width, rect.height);
+      
+      // Reset the loaded flag so existing signature can be loaded again if needed
+      canvas.dataset.loaded = '';
     };
 
     const handleSave = () => {

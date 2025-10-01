@@ -594,83 +594,105 @@ function SimpleSignatureCanvas({ onSignatureChange, value, disabled }: SimpleSig
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
 
-  const startDrawing = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
-    if (disabled) return;
-    
-    setIsDrawing(true);
+  // Initialize canvas with proper scaling
+  useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    // Get device pixel ratio for crisp rendering
+    const dpr = window.devicePixelRatio || 1;
+    
+    // Set canvas size in CSS pixels
     const rect = canvas.getBoundingClientRect();
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
+    canvas.width = rect.width * dpr;
+    canvas.height = rect.height * dpr;
+    
+    // Scale the drawing context so everything draws at the correct size
+    ctx.scale(dpr, dpr);
+    
+    // Set drawing properties for better quality
+    ctx.strokeStyle = '#000000';
+    ctx.lineWidth = 2;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    
+    // Fill with white background
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, rect.width, rect.height);
+  }, []);
 
-    let clientX, clientY;
-    if ('touches' in e) {
-      clientX = e.touches[0].clientX;
-      clientY = e.touches[0].clientY;
-    } else {
-      clientX = e.clientX;
-      clientY = e.clientY;
-    }
+  const getEventPos = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return { x: 0, y: 0 };
 
-    const x = (clientX - rect.left) * scaleX;
-    const y = (clientY - rect.top) * scaleY;
+    const rect = canvas.getBoundingClientRect();
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+
+    return {
+      x: clientX - rect.left,
+      y: clientY - rect.top
+    };
+  };
+
+  const startDrawing = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    if (disabled) return;
+    
+    e.preventDefault();
+    setIsDrawing(true);
+    const pos = getEventPos(e);
+
+    const canvas = canvasRef.current;
+    if (!canvas) return;
 
     const ctx = canvas.getContext('2d');
-    if (ctx) {
-      ctx.beginPath();
-      ctx.moveTo(x, y);
-    }
+    if (!ctx) return;
+
+    ctx.beginPath();
+    ctx.moveTo(pos.x, pos.y);
   };
 
   const draw = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
     if (!isDrawing || disabled) return;
     
+    e.preventDefault();
+    const pos = getEventPos(e);
+
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const rect = canvas.getBoundingClientRect();
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
-
-    let clientX, clientY;
-    if ('touches' in e) {
-      clientX = e.touches[0].clientX;
-      clientY = e.touches[0].clientY;
-    } else {
-      clientX = e.clientX;
-      clientY = e.clientY;
-    }
-
-    const x = (clientX - rect.left) * scaleX;
-    const y = (clientY - rect.top) * scaleY;
-
     const ctx = canvas.getContext('2d');
-    if (ctx) {
-      ctx.lineWidth = 2;
-      ctx.lineCap = 'round';
-      ctx.strokeStyle = '#000';
-      ctx.lineTo(x, y);
-      ctx.stroke();
-    }
+    if (!ctx) return;
+
+    ctx.lineTo(pos.x, pos.y);
+    ctx.stroke();
   };
 
   const stopDrawing = () => {
+    if (!isDrawing) return;
     setIsDrawing(false);
     const canvas = canvasRef.current;
     if (canvas) {
-      const dataUrl = canvas.toDataURL();
+      const dataUrl = canvas.toDataURL('image/png');
       onSignatureChange(dataUrl);
     }
   };
 
-  const clearSignature = () => {
+  const clearSignature = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
     const canvas = canvasRef.current;
     if (canvas) {
       const ctx = canvas.getContext('2d');
       if (ctx) {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        const rect = canvas.getBoundingClientRect();
+        ctx.clearRect(0, 0, rect.width, rect.height);
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, rect.width, rect.height);
         onSignatureChange('');
       }
     }
@@ -681,12 +703,15 @@ function SimpleSignatureCanvas({ onSignatureChange, value, disabled }: SimpleSig
     if (value && canvasRef.current) {
       const canvas = canvasRef.current;
       const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      
       const img = new Image();
       img.onload = () => {
-        if (ctx) {
-          ctx.clearRect(0, 0, canvas.width, canvas.height);
-          ctx.drawImage(img, 0, 0);
-        }
+        const rect = canvas.getBoundingClientRect();
+        ctx.clearRect(0, 0, rect.width, rect.height);
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, rect.width, rect.height);
+        ctx.drawImage(img, 0, 0, rect.width, rect.height);
       };
       img.src = value;
     }
@@ -697,8 +722,6 @@ function SimpleSignatureCanvas({ onSignatureChange, value, disabled }: SimpleSig
       <div className="border-2 border-dashed border-muted-foreground/30 rounded-lg p-2 bg-white">
         <canvas
           ref={canvasRef}
-          width={400}
-          height={150}
           className="w-full h-32 border border-border rounded cursor-crosshair"
           onMouseDown={startDrawing}
           onMouseMove={draw}
@@ -712,7 +735,13 @@ function SimpleSignatureCanvas({ onSignatureChange, value, disabled }: SimpleSig
       </div>
 
       <div className="flex gap-2">
-        <Button variant="outline" size="sm" onClick={clearSignature} disabled={disabled}>
+        <Button 
+          type="button" 
+          variant="outline" 
+          size="sm" 
+          onClick={clearSignature} 
+          disabled={disabled}
+        >
           <Trash2 className="h-4 w-4 mr-2" />
           Clear
         </Button>
