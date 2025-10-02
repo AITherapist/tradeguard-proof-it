@@ -211,7 +211,14 @@ export default function Dashboard() {
       loadProfile();
       checkBillingPopup();
     }
-  }, [user, subscription]);
+  }, [user]);
+
+  // Separate useEffect for subscription checking to prevent infinite loops
+  useEffect(() => {
+    if (user) {
+      checkSubscription();
+    }
+  }, [user, checkSubscription]);
 
   // Show trial warning when appropriate
   useEffect(() => {

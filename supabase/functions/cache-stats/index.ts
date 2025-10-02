@@ -8,7 +8,7 @@ const corsHeaders = {
 
 const logStep = (step: string, details?: any) => {
   const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
-  console.log(`[CALCULATE-STORAGE-USAGE] ${step}${detailsStr}`);
+  console.log(`[CACHE-STATS] ${step}${detailsStr}`);
 };
 
 serve(async (req) => {
@@ -35,40 +35,41 @@ serve(async (req) => {
     if (!user) throw new Error("User not authenticated");
     logStep("User authenticated", { userId: user.id });
 
-    // Get storage usage (cached or calculated)
-    const { data: usageData, error: usageError } = await supabaseClient
-      .rpc('get_user_storage_usage', { p_user_id: user.id });
+    // Get cache statistics for the user
+    const { data: cacheData, error: cacheError } = await supabaseClient
+      .from('storage_usage')
+      .select('*')
+      .eq('user_id', user.id)
+      .single();
 
-    if (usageError) {
-      logStep("Storage calculation error", { error: usageError.message });
-      throw new Error(`Storage calculation failed: ${usageError.message}`);
+    if (cacheError && cacheError.code !== 'PGRST116') { // PGRST116 = no rows returned
+      logStep("Cache stats error", { error: cacheError.message });
+      throw new Error(`Cache stats failed: ${cacheError.message}`);
     }
 
-    const usage = usageData[0];
-    const limit = 53687091200; // 50GB in bytes
-    const usagePercentage = (usage.total_size_bytes / limit) * 100;
+    const stats = cacheData ? {
+      is_cached: true,
+      total_size_bytes: cacheData.total_size_bytes,
+      evidence_size_bytes: cacheData.evidence_size_bytes,
+      reports_size_bytes: cacheData.reports_size_bytes,
+      file_count: cacheData.file_count,
+      last_calculated_at: cacheData.last_calculated_at,
+      created_at: cacheData.created_at,
+      updated_at: cacheData.updated_at,
+      cache_age_minutes: Math.round((Date.now() - new Date(cacheData.last_calculated_at).getTime()) / (1000 * 60))
+    } : {
+      is_cached: false,
+      message: "No cached data available"
+    };
 
-    logStep("Storage usage retrieved", { 
-      totalSize: usage.total_size_bytes,
-      usagePercentage: Math.round(usagePercentage * 100) / 100,
-      isCached: usage.is_cached,
-      lastCalculated: usage.last_calculated_at
+    logStep("Cache stats retrieved", { 
+      isCached: stats.is_cached,
+      cacheAge: stats.cache_age_minutes || 0
     });
 
     return new Response(JSON.stringify({
       success: true,
-      usage: {
-        total_size_bytes: usage.total_size_bytes,
-        evidence_size_bytes: usage.evidence_size_bytes,
-        reports_size_bytes: usage.reports_size_bytes,
-        file_count: usage.file_count,
-        limit_bytes: limit,
-        usage_percentage: Math.round(usagePercentage * 100) / 100,
-        remaining_bytes: limit - usage.total_size_bytes,
-        is_over_limit: usage.total_size_bytes > limit,
-        is_cached: usage.is_cached,
-        last_calculated_at: usage.last_calculated_at
-      }
+      stats
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
@@ -76,7 +77,7 @@ serve(async (req) => {
 
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    logStep("ERROR in calculate-storage-usage", { message: errorMessage });
+    logStep("ERROR in cache-stats", { message: errorMessage });
     return new Response(JSON.stringify({ error: errorMessage }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 500,

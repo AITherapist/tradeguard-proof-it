@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -36,14 +36,19 @@ export function JobList({ onJobSelect, onEvidenceCapture, onJobChange }: JobList
   const [editingJob, setEditingJob] = useState<Job | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [deletingJobId, setDeletingJobId] = useState<string | null>(null);
+  const [lastFetchTime, setLastFetchTime] = useState<number>(0);
   const { toast } = useToast();
 
-  useEffect(() => {
-    fetchJobs();
-  }, []);
+  // Memoize fetchJobs to prevent unnecessary re-renders
+  const fetchJobs = useCallback(async (forceRefresh = false) => {
+    const now = Date.now();
+    // Prevent fetching if called within 5 seconds unless forced
+    if (!forceRefresh && now - lastFetchTime < 5000) {
+      return;
+    }
 
-  const fetchJobs = async () => {
     try {
+      setIsLoading(true);
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
@@ -55,6 +60,7 @@ export function JobList({ onJobSelect, onEvidenceCapture, onJobChange }: JobList
 
       if (error) throw error;
       setJobs(data || []);
+      setLastFetchTime(now);
     } catch (error) {
       console.error('Error fetching jobs:', error);
       toast({
@@ -65,7 +71,12 @@ export function JobList({ onJobSelect, onEvidenceCapture, onJobChange }: JobList
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [lastFetchTime, toast]);
+
+  // Only fetch once on mount
+  useEffect(() => {
+    fetchJobs(true);
+  }, []); // Empty dependency array - only run once
 
   const getProtectionStatusColor = (status: number) => {
     if (status >= 80) return 'bg-success';
@@ -87,7 +98,7 @@ export function JobList({ onJobSelect, onEvidenceCapture, onJobChange }: JobList
   const handleJobUpdated = () => {
     setShowEditModal(false);
     setEditingJob(null);
-    fetchJobs(); // Refresh the jobs list
+    fetchJobs(true); // Force refresh the jobs list
     onJobChange?.(); // Notify parent component
     toast({
       title: 'Job Updated',

@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -107,7 +107,7 @@ export function RecentJobsCard({ jobs, isLoading, onJobsChange }: RecentJobsCard
     return <Badge variant="destructive">At Risk</Badge>;
   };
 
-  const handleDeleteJob = async (jobId: string) => {
+  const handleDeleteJob = useCallback(async (jobId: string) => {
     try {
       const { error } = await supabase
         .from('jobs')
@@ -131,7 +131,7 @@ export function RecentJobsCard({ jobs, isLoading, onJobsChange }: RecentJobsCard
       });
     }
     setDeleteJobId(null);
-  };
+  }, [onJobsChange, toast]);
 
   const handleViewJob = (job: Job) => {
     setSelectedJobId(job.id);
@@ -143,7 +143,7 @@ export function RecentJobsCard({ jobs, isLoading, onJobsChange }: RecentJobsCard
     setShowEditModal(true);
   };
 
-  const handleJobUpdated = () => {
+  const handleJobUpdated = useCallback(() => {
     setShowEditModal(false);
     setEditingJob(null);
     onJobsChange();
@@ -151,7 +151,7 @@ export function RecentJobsCard({ jobs, isLoading, onJobsChange }: RecentJobsCard
       title: 'Job Updated',
       description: 'Job has been updated successfully',
     });
-  };
+  }, [onJobsChange, toast]);
 
   const handleEditCancel = () => {
     setShowEditModal(false);

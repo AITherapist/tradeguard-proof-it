@@ -39,7 +39,7 @@ interface Job {
 }
 
 export default function Reports() {
-  const { user, loading } = useAuth();
+  const { user, loading, checkSubscription } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [reports, setReports] = useState<Report[]>([]);
@@ -51,6 +51,8 @@ export default function Reports() {
   useEffect(() => {
     if (user) {
       loadReports();
+      // Check subscription status when Reports page loads
+      checkSubscription();
       
       // Check if user was redirected from report generation
       if (searchParams.get('generated') === 'true') {
@@ -59,7 +61,7 @@ export default function Reports() {
         navigate('/reports', { replace: true });
       }
     }
-  }, [user, searchParams, navigate]);
+  }, [user, searchParams, navigate, checkSubscription]);
 
   // Handle conditional rendering after all hooks
   if (loading) {

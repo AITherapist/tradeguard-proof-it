@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { JobDetailView } from '@/components/job/JobDetailView';
 import { ApprovalWorkflow } from '@/components/approval/ApprovalWorkflow';
@@ -21,7 +21,14 @@ export default function Jobs() {
   
   // Trial expiration logic
   const { isExpired, hasActiveAccess, canAccessFeature } = useTrialExpiration();
-  const { session } = useAuth();
+  const { session, checkSubscription } = useAuth();
+
+  // Check subscription status when Jobs page loads
+  useEffect(() => {
+    if (session) {
+      checkSubscription();
+    }
+  }, [session, checkSubscription]);
 
   const handleJobCreated = () => {
     setViewMode('list');

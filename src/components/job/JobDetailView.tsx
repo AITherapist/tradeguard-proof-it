@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -63,15 +63,18 @@ export function JobDetailView({ jobId, onBack }: JobDetailViewProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [showEvidenceCapture, setShowEvidenceCapture] = useState(false);
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
+  const [lastFetchTime, setLastFetchTime] = useState<number>(0);
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  useEffect(() => {
-    fetchJobDetails();
-    fetchEvidenceStats();
-  }, [jobId]);
+  // Memoize fetchJobDetails to prevent unnecessary re-renders
+  const fetchJobDetails = useCallback(async (forceRefresh = false) => {
+    const now = Date.now();
+    // Prevent fetching if called within 3 seconds unless forced
+    if (!forceRefresh && now - lastFetchTime < 3000) {
+      return;
+    }
 
-  const fetchJobDetails = async () => {
     try {
       const { data, error } = await supabase
         .from('jobs')
@@ -81,6 +84,7 @@ export function JobDetailView({ jobId, onBack }: JobDetailViewProps) {
 
       if (error) throw error;
       setJob(data);
+      setLastFetchTime(now);
     } catch (error) {
       console.error('Error fetching job details:', error);
       toast({
@@ -88,12 +92,17 @@ export function JobDetailView({ jobId, onBack }: JobDetailViewProps) {
         description: 'Failed to fetch job details',
         variant: 'destructive',
       });
-    } finally {
-      setIsLoading(false);
     }
-  };
+  }, [jobId, lastFetchTime, toast]);
 
-  const fetchEvidenceStats = async () => {
+  // Memoize fetchEvidenceStats to prevent unnecessary re-renders
+  const fetchEvidenceStats = useCallback(async (forceRefresh = false) => {
+    const now = Date.now();
+    // Prevent fetching if called within 3 seconds unless forced
+    if (!forceRefresh && now - lastFetchTime < 3000) {
+      return;
+    }
+
     try {
       const { data, error } = await supabase
         .from('evidence_items')
@@ -115,7 +124,27 @@ export function JobDetailView({ jobId, onBack }: JobDetailViewProps) {
     } catch (error) {
       console.error('Error fetching evidence stats:', error);
     }
-  };
+  }, [jobId, lastFetchTime]);
+
+  // Combined fetch function to load both job details and evidence stats
+  const fetchAllData = useCallback(async (forceRefresh = false) => {
+    setIsLoading(true);
+    try {
+      await Promise.all([
+        fetchJobDetails(forceRefresh),
+        fetchEvidenceStats(forceRefresh)
+      ]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [fetchJobDetails, fetchEvidenceStats]);
+
+  // Only fetch when jobId changes
+  useEffect(() => {
+    if (jobId) {
+      fetchAllData(true);
+    }
+  }, [jobId]); // Only depend on jobId, not the fetch functions
 
   const generateReport = async () => {
     setIsGeneratingReport(true);
@@ -224,7 +253,7 @@ export function JobDetailView({ jobId, onBack }: JobDetailViewProps) {
         jobId={jobId}
         onSuccess={() => {
           setShowEvidenceCapture(false);
-          fetchEvidenceStats();
+          fetchEvidenceStats(true); // Force refresh
         }}
         onCancel={() => setShowEvidenceCapture(false)}
       />
