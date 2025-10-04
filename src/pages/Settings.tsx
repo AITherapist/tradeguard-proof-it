@@ -468,11 +468,17 @@ export default function Settings() {
                   <div>
                     <h3 className="font-semibold">Current Plan</h3>
                     <p className="text-sm text-muted-foreground">
-                      {subscription?.subscribed ? 'Premium Plan' : subscription?.in_trial ? 'Free Trial' : 'No Subscription'}
+                      {subscription?.subscription_status === 'active' ? 'Premium Plan' : 
+                       subscription?.subscription_status === 'trialing' ? 'Free Trial' : 
+                       subscription?.subscription_status === 'cancelled' ? 'Cancelled Plan' : 'No Subscription'}
                     </p>
                   </div>
-                  <Badge variant={subscription?.subscribed ? 'default' : subscription?.in_trial ? 'secondary' : 'destructive'}>
-                    {subscription?.subscribed ? 'ACTIVE' : subscription?.in_trial ? 'TRIAL' : 'INACTIVE'}
+                  <Badge variant={
+                    subscription?.subscription_status === 'active' ? 'default' : 
+                    subscription?.subscription_status === 'trialing' ? 'secondary' : 
+                    subscription?.subscription_status === 'cancelled' ? 'destructive' : 'destructive'
+                  }>
+                    {subscription?.subscription_status?.toUpperCase() || 'INACTIVE'}
                   </Badge>
                 </div>
 
@@ -482,12 +488,16 @@ export default function Settings() {
                       <div>
                         <Label className="text-sm font-medium">Status</Label>
                         <p className="text-sm text-muted-foreground capitalize">
-                          {subscription.subscribed ? 'Active' : subscription.in_trial ? 'Trial' : 'Inactive'}
+                          {subscription.subscription_status === 'active' ? 'Active' : 
+                           subscription.subscription_status === 'trialing' ? 'Trial' : 
+                           subscription.subscription_status === 'cancelled' ? 'Cancelled' : 'Inactive'}
                         </p>
                       </div>
                       <div>
                         <Label className="text-sm font-medium">
-                          {subscription.in_trial ? 'Trial Ends' : subscription.subscribed ? 'Next Billing' : 'Status'}
+                          {subscription.subscription_status === 'trialing' ? 'Trial Ends' : 
+                           subscription.subscription_status === 'active' ? 'Next Billing' : 
+                           subscription.subscription_status === 'cancelled' ? 'Plan Ends' : 'Status'}
                         </Label>
                         <p className="text-sm text-muted-foreground">
                           {subscription.subscription_end ? new Date(subscription.subscription_end).toLocaleDateString() : 'N/A'}
@@ -500,7 +510,7 @@ export default function Settings() {
                 <Separator />
 
                 {/* Upgrade Action */}
-                {!subscription?.subscribed && !subscription?.in_trial && (
+                {!subscription?.subscribed && !subscription?.in_trial && subscription?.subscription_status !== 'cancelled' && (
                   <div className="text-center">
                     <Button onClick={handleCreateCheckout} disabled={isLoading} size="lg">
                       <CreditCard className="h-4 w-4 mr-2" />
@@ -509,13 +519,51 @@ export default function Settings() {
                   </div>
                 )}
 
-                {/* Trial to Premium Upgrade */}
-                {subscription?.in_trial && !subscription?.subscribed && (
+                {/* Dynamic Status Section */}
+                {subscription?.subscription_status === 'inactive' && (
                   <div className="text-center">
-                    <Button onClick={handleCreateCheckout} disabled={isLoading} size="lg">
-                      <CreditCard className="h-4 w-4 mr-2" />
-                      Upgrade to Premium
-                    </Button>
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                      <h3 className="font-semibold text-blue-900 mb-2">Trial Active</h3>
+                      <p className="text-sm text-blue-700 mb-3">
+                        Your free trial is currently active. No billing details added yet - please add them to continue after your trial period.
+                      </p>
+                      <div className="text-xs text-blue-600 mb-3">
+                        Trial ends: {subscription.subscription_end ? new Date(subscription.subscription_end).toLocaleDateString() : 'N/A'}
+                      </div>
+                      <Button onClick={handleCreateCheckout} disabled={isLoading} size="sm">
+                        <CreditCard className="h-4 w-4 mr-2" />
+                        Add Billing Details
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {subscription?.subscription_status === 'trialing' && (
+                  <div className="text-center">
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                      <h3 className="font-semibold text-blue-900 mb-2">Trial Active</h3>
+                      <p className="text-sm text-blue-700 mb-3">
+                        Your free trial is currently active. You'll be automatically charged when the trial ends.
+                      </p>
+                      <div className="text-xs text-blue-600">
+                        Trial ends: {subscription.subscription_end ? new Date(subscription.subscription_end).toLocaleDateString() : 'N/A'}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {subscription?.subscription_status === 'cancelled' && (
+                  <div className="text-center">
+                    <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                      <h3 className="font-semibold text-orange-900 mb-2">Plan Cancelled</h3>
+                      <p className="text-sm text-orange-700 mb-3">
+                        Your plan will end on {subscription.subscription_end ? new Date(subscription.subscription_end).toLocaleDateString() : 'the end of your current period'}.
+                      </p>
+                      <Button onClick={handleManageBilling} disabled={isLoading} size="sm" variant="outline">
+                        <ExternalLink className="h-4 w-4 mr-2" />
+                        Resume Plan
+                      </Button>
+                    </div>
                   </div>
                 )}
 
@@ -557,25 +605,34 @@ export default function Settings() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-                {(subscription?.subscribed || subscription?.in_trial) ? (
+                {/* User has billing details set up (customer_id exists) */}
+                {subscription?.customer_id ? (
                   <div className="space-y-4">
                     <div className="flex items-center justify-between p-4 border rounded-lg">
                       <div>
                         <h3 className="font-semibold">
-                          {subscription?.subscribed ? 'Active Subscription' : 'Trial Subscription'}
+                          {subscription?.subscription_status === 'active' ? 'Active Subscription' : 
+                           subscription?.subscription_status === 'trialing' ? 'Trial with Billing' : 
+                           subscription?.subscription_status === 'cancelled' ? 'Cancelled Subscription' : 'Subscription'}
                         </h3>
                         <p className="text-sm text-muted-foreground">
                           Bluhatch Pro - £99.00/month
-                          {subscription?.in_trial && ' (Trial)'}
+                          {subscription?.subscription_status === 'trialing' && ' (Trial)'}
                         </p>
                         {subscription?.subscription_end && (
                           <p className="text-xs text-muted-foreground mt-1">
-                            {subscription.subscribed ? 'Next billing' : 'Trial ends'}: {new Date(subscription.subscription_end).toLocaleDateString()}
+                            {subscription.subscription_status === 'active' ? 'Next billing' : 
+                             subscription.subscription_status === 'trialing' ? 'Trial ends' : 
+                             subscription.subscription_status === 'cancelled' ? 'Plan ends' : 'Status'}: {new Date(subscription.subscription_end).toLocaleDateString()}
                           </p>
                         )}
                       </div>
-                      <Badge variant={subscription?.subscribed ? 'default' : 'secondary'}>
-                        {subscription?.subscribed ? 'ACTIVE' : 'TRIAL'}
+                      <Badge variant={
+                        subscription?.subscription_status === 'active' ? 'default' : 
+                        subscription?.subscription_status === 'trialing' ? 'secondary' : 
+                        subscription?.subscription_status === 'cancelled' ? 'destructive' : 'secondary'
+                      }>
+                        {subscription?.subscription_status?.toUpperCase() || 'TRIAL'}
                       </Badge>
                     </div>
 
@@ -592,6 +649,18 @@ export default function Settings() {
                     <p className="text-sm text-muted-foreground mb-4">
                       Add your billing details to continue after your trial period.
                     </p>
+                    {subscription?.in_trial && (
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4 text-left">
+                        <p className="text-sm text-blue-700">
+                          <strong>What happens next:</strong>
+                        </p>
+                        <ul className="text-xs text-blue-600 mt-1 space-y-1">
+                          <li>• You'll be charged £99/month when your trial ends</li>
+                          <li>• No charges until {subscription.subscription_end ? new Date(subscription.subscription_end).toLocaleDateString() : 'trial ends'}</li>
+                          <li>• You can cancel anytime during the trial</li>
+                        </ul>
+                      </div>
+                    )}
                     <Button onClick={handleCreateCheckout} disabled={isLoading}>
                       <CreditCard className="h-4 w-4 mr-2" />
                       Add Billing Details

@@ -126,12 +126,34 @@ serve(async (req) => {
     const customerId = customers.data[0].id;
     logStep("Found Stripe customer", { customerId });
 
-    // Check for any subscription (active, trialing, or past_due)
+    // First, check subscription events table for the most recent status
+    const { data: recentEvent, error: eventError } = await supabaseClient
+      .from('subscription_events')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single();
+
+    if (eventError && eventError.code !== 'PGRST116') { // PGRST116 = no rows found
+      logStep("Error fetching subscription events", { error: eventError.message });
+    }
+
+    logStep("Recent subscription event", { 
+      event: recentEvent ? {
+        event_type: recentEvent.event_type,
+        new_status: recentEvent.new_status,
+        created_at: recentEvent.created_at
+      } : null
+    });
+
+    // Check for any subscription (including cancelled ones)
     let allSubscriptions;
     try {
       allSubscriptions = await stripe.subscriptions.list({
         customer: customerId,
         limit: 10,
+        status: 'all', // Include all statuses including cancelled
       });
     } catch (stripeError) {
       logStep("Stripe subscriptions API error", { error: stripeError.message });
@@ -140,57 +162,168 @@ serve(async (req) => {
     
     logStep("Found subscriptions", { count: allSubscriptions.data.length });
     
-    // Find the most recent active or trialing subscription
-    const activeSub = allSubscriptions.data.find(sub => 
+    // Find the most recent subscription (including cancelled ones for end date)
+    const allSubsSorted = allSubscriptions.data.sort((a, b) => b.created - a.created);
+    const activeSub = allSubsSorted.find(sub => 
       sub.status === 'active' || sub.status === 'trialing' || sub.status === 'past_due'
     );
+    
+    // If no active subscription, get the most recent one (including cancelled) for end date
+    const mostRecentSub = activeSub || allSubsSorted[0];
     
     let hasActiveSub = false;
     let productId = null;
     let subscriptionEnd = null;
     let isTrial = false;
+    let subscriptionStatus = 'inactive'; // Default status
 
-    if (activeSub) {
-      hasActiveSub = true;
+    // Prioritize subscription events table over Stripe API
+    if (recentEvent) {
+      subscriptionStatus = recentEvent.new_status;
+      logStep("Using subscription event status", { 
+        status: subscriptionStatus,
+        eventType: recentEvent.event_type,
+        eventDate: recentEvent.created_at
+      });
+    } else if (mostRecentSub) {
+      // Use Stripe API if no events found
+      logStep("Using Stripe API status", { 
+        stripeStatus: mostRecentSub.status,
+        reason: 'no_events_found'
+      });
       
-      // Safely handle subscription end date
-      try {
-        if (activeSub.current_period_end && typeof activeSub.current_period_end === 'number') {
-          const endDate = new Date(activeSub.current_period_end * 1000);
-          if (!isNaN(endDate.getTime())) {
-            subscriptionEnd = endDate.toISOString();
-          } else {
-            logStep("Invalid current_period_end timestamp", { current_period_end: activeSub.current_period_end });
-          }
-        }
-      } catch (error) {
-        logStep("Error parsing subscription end date", { error: error.message, current_period_end: activeSub.current_period_end });
+      // Determine subscription status based on Stripe status
+      switch (mostRecentSub.status) {
+        case 'active':
+          subscriptionStatus = 'active';
+          break;
+        case 'trialing':
+          subscriptionStatus = 'trialing';
+          break;
+        case 'past_due':
+          subscriptionStatus = 'past_due';
+          break;
+        case 'canceled':
+        case 'cancelled':
+          subscriptionStatus = 'cancelled';
+          break;
+        case 'incomplete':
+        case 'incomplete_expired':
+          subscriptionStatus = 'incomplete';
+          break;
+        default:
+          subscriptionStatus = 'inactive';
       }
       
-      productId = activeSub.items.data[0]?.price?.product;
-      isTrial = activeSub.status === 'trialing';
+      // If we have events but Stripe status differs, log the discrepancy
+      if (recentEvent && recentEvent.new_status !== subscriptionStatus) {
+        logStep("Status discrepancy detected", {
+          eventStatus: recentEvent.new_status,
+          stripeStatus: subscriptionStatus,
+          eventDate: recentEvent.created_at,
+          eventType: recentEvent.event_type
+        });
+      }
+    }
+
+    if (mostRecentSub) {
+      hasActiveSub = !!activeSub; // Only true if we found an active subscription
       
-      logStep("Found subscription", { 
-        subscriptionId: activeSub.id, 
-        status: activeSub.status,
+      // Log detailed subscription info for debugging
+      logStep("Processing subscription", { 
+        subscriptionId: mostRecentSub.id, 
+        status: mostRecentSub.status,
+        current_period_end: mostRecentSub.current_period_end,
+        trial_end: mostRecentSub.trial_end,
+        created: mostRecentSub.created
+      });
+      
+      // Safely handle subscription end date - try multiple sources
+      try {
+        let endDate = null;
+        
+        // For active/trialing subscriptions, use current_period_end
+        if (mostRecentSub.status === 'active' || mostRecentSub.status === 'trialing') {
+          if (mostRecentSub.current_period_end && typeof mostRecentSub.current_period_end === 'number') {
+            endDate = new Date(mostRecentSub.current_period_end * 1000);
+            logStep("Using current_period_end", { current_period_end: mostRecentSub.current_period_end });
+          }
+        }
+        
+        // For trial subscriptions, also check trial_end
+        if (!endDate && mostRecentSub.status === 'trialing' && mostRecentSub.trial_end) {
+          endDate = new Date(mostRecentSub.trial_end * 1000);
+          logStep("Using trial_end", { trial_end: mostRecentSub.trial_end });
+        }
+        
+        // For cancelled subscriptions, use current_period_end if available
+        if (!endDate && mostRecentSub.status === 'canceled' && mostRecentSub.current_period_end) {
+          endDate = new Date(mostRecentSub.current_period_end * 1000);
+          logStep("Using current_period_end for cancelled subscription", { current_period_end: mostRecentSub.current_period_end });
+        }
+        
+        if (endDate && !isNaN(endDate.getTime())) {
+          subscriptionEnd = endDate.toISOString();
+          logStep("Successfully parsed subscription end date", { subscriptionEnd });
+        } else {
+          logStep("No valid end date found", { 
+            current_period_end: mostRecentSub.current_period_end,
+            trial_end: mostRecentSub.trial_end,
+            status: mostRecentSub.status
+          });
+        }
+      } catch (error) {
+        logStep("Error parsing subscription end date", { 
+          error: error.message, 
+          current_period_end: mostRecentSub.current_period_end,
+          trial_end: mostRecentSub.trial_end 
+        });
+      }
+      
+      productId = mostRecentSub.items.data[0]?.price?.product;
+      isTrial = mostRecentSub.status === 'trialing';
+      
+      logStep("Final subscription data", { 
+        subscriptionId: mostRecentSub.id, 
+        status: mostRecentSub.status,
+        subscriptionStatus,
         endDate: subscriptionEnd,
-        isTrial 
+        isTrial,
+        hasActiveSub
       });
 
       // Update profile with subscription data
       try {
+        // Get current profile status to check if it changed
+        const { data: currentProfile } = await supabaseClient
+          .from('profiles')
+          .select('subscription_status')
+          .eq('user_id', user.id)
+          .single();
+
+        const previousStatus = currentProfile?.subscription_status || 'inactive';
+
+        // Update profile
         const { error: updateError } = await supabaseClient
           .from('profiles')
           .update({
-            subscription_status: activeSub.status as any,
+            subscription_status: subscriptionStatus,
             customer_id: customerId,
-            subscription_id: activeSub.id,
+            subscription_id: mostRecentSub.id,
             updated_at: new Date().toISOString(),
           })
           .eq('user_id', user.id);
         
         if (updateError) {
           logStep("Profile update error (continuing)", { error: updateError.message });
+        } else {
+          logStep("Profile updated successfully", { 
+            userId: user.id, 
+            subscriptionStatus,
+            subscriptionId: mostRecentSub.id,
+            previousStatus,
+            statusChanged: previousStatus !== subscriptionStatus
+          });
         }
       } catch (dbError) {
         logStep("Database update error (continuing)", { error: dbError.message });
@@ -219,11 +352,12 @@ serve(async (req) => {
     }
 
     return new Response(JSON.stringify({
-      subscribed: hasActiveSub && !isTrial,
+      subscribed: subscriptionStatus === 'active',
       product_id: productId,
       subscription_end: subscriptionEnd,
-      in_trial: isTrial,
-      customer_id: customerId
+      in_trial: subscriptionStatus === 'trialing',
+      customer_id: customerId,
+      subscription_status: subscriptionStatus
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,

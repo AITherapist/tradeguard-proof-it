@@ -85,6 +85,56 @@ serve(async (req) => {
     const hasExistingSubscription = allSubscriptions.data.length > 0;
     logStep("Checked existing subscriptions", { hasExisting: hasExistingSubscription, count: allSubscriptions.data.length });
 
+    // Check if user is currently in a trial
+    const activeTrialSub = allSubscriptions.data.find(sub => sub.status === 'trialing');
+    const isCurrentlyInTrial = !!activeTrialSub;
+    
+    // Log detailed trial subscription info for debugging
+    if (isCurrentlyInTrial) {
+      logStep("Found trial subscription", { 
+        subscriptionId: activeTrialSub.id,
+        status: activeTrialSub.status,
+        current_period_end: activeTrialSub.current_period_end,
+        trial_end: activeTrialSub.trial_end,
+        created: activeTrialSub.created
+      });
+    }
+    
+    let trialEndDate: Date | null = null;
+    if (isCurrentlyInTrial && activeTrialSub.current_period_end) {
+      trialEndDate = new Date(activeTrialSub.current_period_end * 1000);
+      logStep("User is in trial with valid end date", { trialEndDate: trialEndDate.toISOString() });
+    } else if (isCurrentlyInTrial && activeTrialSub.trial_end) {
+      // Fallback to trial_end if current_period_end is null
+      trialEndDate = new Date(activeTrialSub.trial_end * 1000);
+      logStep("User is in trial, using trial_end as fallback", { trialEndDate: trialEndDate.toISOString() });
+    } else if (isCurrentlyInTrial) {
+      logStep("User is in trial but both current_period_end and trial_end are null/undefined", { 
+        current_period_end: activeTrialSub.current_period_end,
+        trial_end: activeTrialSub.trial_end 
+      });
+    }
+
+    // Determine subscription data based on user state
+    let subscriptionData: { trial_end?: number; trial_period_days?: number } | undefined = undefined;
+    if (isCurrentlyInTrial && trialEndDate) {
+      // User is in trial with valid end date - set up subscription to start when trial ends
+      subscriptionData = {
+        trial_end: Math.floor(trialEndDate.getTime() / 1000)
+      };
+    } else if (isCurrentlyInTrial && !trialEndDate) {
+      // User is in trial but no valid end date - give them a 7-day trial
+      subscriptionData = {
+        trial_period_days: 7
+      };
+    } else if (!hasExistingSubscription || isBillingSetup) {
+      // New user or billing setup - give them a 7-day trial
+      subscriptionData = {
+        trial_period_days: 7
+      };
+    }
+    // If user has existing subscription and not billing setup, subscriptionData remains undefined
+
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
       customer_email: customerId ? undefined : user.email,
@@ -95,10 +145,7 @@ serve(async (req) => {
         },
       ],
       mode: "subscription",
-      // Only add trial for first-time users or billing setup
-      subscription_data: (hasExistingSubscription && !isBillingSetup) ? undefined : {
-        trial_period_days: 7,
-      },
+      subscription_data: subscriptionData,
       success_url: isBillingSetup 
         ? `${origin}/dashboard?billing_setup=success`
         : `${origin}/settings?success=true&tab=billing`,

@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TradeGuard/BLUHATCH Application Architecture</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica', 'Arial', sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #1e40af;
+            border-bottom: 3px solid #3b82f6;
+            padding-bottom: 10px;
+        }
+        h2 {
+            color: #374151;
+            margin-top: 40px;
+            padding: 10px;
+            background: #f3f4f6;
+            border-left: 4px solid #3b82f6;
+        }
+        .diagram {
+            margin: 30px 0;
+            padding: 20px;
+            background: #fafafa;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+        .legend {
+            background: #eff6ff;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 20px 0;
+        }
+        .legend h3 {
+            margin-top: 0;
+            color: #1e40af;
+        }
+        .legend-item {
+            display: inline-block;
+            margin-right: 20px;
+            margin-bottom: 10px;
+        }
+        .color-box {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            margin-right: 5px;
+            vertical-align: middle;
+            border: 1px solid #ddd;
+        }
+        .info-box {
+            background: #fef3c7;
+            border-left: 4px solid #f59e0b;
+            padding: 15px;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🛡️ TradeGuard / BLUHATCH - Application Architecture</h1>
+        
+        <div class="info-box">
+            <strong>About:</strong> This is a comprehensive visualization of the TradeGuard/BLUHATCH application architecture.
+            It shows all frontend pages, components, backend services, database tables, and their interactions.
+        </div>
+
+        <div class="legend">
+            <h3>📖 Legend</h3>
+            <div class="legend-item">
+                <span class="color-box" style="background: #dbeafe;"></span>
+                <span>Frontend Pages</span>
+            </div>
+            <div class="legend-item">
+                <span class="color-box" style="background: #dcfce7;"></span>
+                <span>Components</span>
+            </div>
+            <div class="legend-item">
+                <span class="color-box" style="background: #fef3c7;"></span>
+                <span>Backend Services</span>
+            </div>
+            <div class="legend-item">
+                <span class="color-box" style="background: #fce7f3;"></span>
+                <span>Database Tables</span>
+            </div>
+            <div class="legend-item">
+                <span class="color-box" style="background: #e0e7ff;"></span>
+                <span>External Services</span>
+            </div>
+        </div>
+
+        <h2>🗺️ Overall Application Architecture</h2>
+        <div class="diagram">
+            <div class="mermaid">
+graph TB
+    subgraph "🌐 Frontend Layer"
+        App[App.tsx<br/>Main Entry Point]
+        Router[React Router<br/>Navigation]
+        
+        subgraph "📄 Pages"
+            Index[Index]
+            SignIn[SignIn]
+            SignUp[SignUp]
+            Dashboard[Dashboard]
+            Jobs[Jobs]
+            Customers[Customers]
+            Reports[Reports]
+            Settings[Settings]
+        end
+        
+        subgraph "🔧 Core Components"
+            DashboardLayout[DashboardLayout<br/>Layout Wrapper]
+            AppSidebar[AppSidebar<br/>Desktop Nav]
+            MobileBottomNav[MobileBottomNav<br/>Mobile Nav]
+            AuthProvider[AuthProvider<br/>Auth Context]
+        end
+        
+        subgraph "📦 Feature Components"
+            JobForm[JobForm]
+            JobList[JobList]
+            JobDetail[JobDetailView]
+            EvidenceCapture[EvidenceCapture]
+            EvidenceGallery[EvidenceGallery]
+            ClientForm[ClientForm]
+            CustomersList[CustomersList]
+            ApprovalWorkflow[ApprovalWorkflow]
+            BlockchainVerif[BlockchainVerification]
+            SignaturePad[SignaturePad]
+            StorageManagement[StorageManagement]
+        end
+    end
+    
+    subgraph "🔌 Integration Layer"
+        SupabaseClient[Supabase Client<br/>@supabase/supabase-js]
+        ReactQuery[React Query<br/>State Management]
+        Hooks[Custom Hooks<br/>useAuth, useResponsive, etc.]
+    end
+    
+    subgraph "☁️ Backend Layer - Supabase"
+        Auth[Supabase Auth<br/>User Authentication]
+        
+        subgraph "🗄️ Database Tables"
+            Profiles[(profiles)]
+            JobsTable[(jobs)]
+            EvidenceItems[(evidence_items)]
+            ClientsTable[(clients)]
+            AuditLogs[(audit_logs)]
+            SubEvents[(subscription_events)]
+            StorageUsage[(storage_usage)]
+        end
+        
+        subgraph "📡 Edge Functions"
+            CheckSub[check-subscription]
+            CreateCheckout[create-checkout]
+            CustomerPortal[customer-portal]
+            UploadEvidence[upload-evidence]
+            CreateTimestamp[create-timestamp]
+            GenerateReport[generate-report]
+            GeneratePDF[generate-pdf-report]
+            DeleteJob[delete-job]
+            CalcStorage[calculate-storage-usage]
+            RefreshCache[refresh-storage-cache]
+        end
+        
+        subgraph "💾 Storage"
+            EvidenceBucket[Evidence Bucket<br/>Image Storage]
+            ReportsBucket[Reports Bucket<br/>PDF Storage]
+        end
+    end
+    
+    subgraph "🌍 External Services"
+        Stripe[Stripe<br/>Payment Processing]
+        OpenTimestamps[OpenTimestamps<br/>Blockchain Verification]
+    end
+    
+    %% Frontend Connections
+    App --> Router
+    Router --> Index
+    Router --> SignIn
+    Router --> SignUp
+    Router --> Dashboard
+    Router --> Jobs
+    Router --> Customers
+    Router --> Reports
+    Router --> Settings
+    
+    App --> AuthProvider
+    Dashboard --> DashboardLayout
+    Jobs --> DashboardLayout
+    Customers --> DashboardLayout
+    Reports --> DashboardLayout
+    Settings --> DashboardLayout
+    
+    DashboardLayout --> AppSidebar
+    DashboardLayout --> MobileBottomNav
+    
+    Dashboard --> JobForm
+    Dashboard --> JobList
+    Jobs --> JobList
+    Jobs --> JobForm
+    Jobs --> JobDetail
+    Jobs --> EvidenceCapture
+    Jobs --> ApprovalWorkflow
+    
+    JobDetail --> EvidenceGallery
+    EvidenceCapture --> SignaturePad
+    EvidenceGallery --> BlockchainVerif
+    ApprovalWorkflow --> SignaturePad
+    
+    Customers --> CustomersList
+    Customers --> ClientForm
+    Settings --> StorageManagement
+    
+    %% Integration Layer Connections
+    AuthProvider --> SupabaseClient
+    JobForm --> SupabaseClient
+    JobList --> SupabaseClient
+    JobDetail --> SupabaseClient
+    EvidenceCapture --> SupabaseClient
+    CustomersList --> SupabaseClient
+    
+    Dashboard --> ReactQuery
+    Jobs --> ReactQuery
+    
+    %% Backend Connections
+    SupabaseClient --> Auth
+    SupabaseClient --> Profiles
+    SupabaseClient --> JobsTable
+    SupabaseClient --> EvidenceItems
+    SupabaseClient --> ClientsTable
+    
+    Auth --> Profiles
+    JobsTable --> Profiles
+    EvidenceItems --> JobsTable
+    JobsTable --> ClientsTable
+    AuditLogs --> Profiles
+    SubEvents --> Profiles
+    
+    %% Edge Function Connections
+    CheckSub --> Stripe
+    CheckSub --> Profiles
+    CreateCheckout --> Stripe
+    CustomerPortal --> Stripe
+    
+    UploadEvidence --> EvidenceBucket
+    UploadEvidence --> EvidenceItems
+    
+    CreateTimestamp --> OpenTimestamps
+    CreateTimestamp --> EvidenceItems
+    
+    GenerateReport --> JobsTable
+    GenerateReport --> EvidenceItems
+    GenerateReport --> ReportsBucket
+    
+    GeneratePDF --> JobsTable
+    GeneratePDF --> EvidenceItems
+    GeneratePDF --> ReportsBucket
+    
+    DeleteJob --> JobsTable
+    DeleteJob --> EvidenceItems
+    DeleteJob --> EvidenceBucket
+    
+    CalcStorage --> StorageUsage
+    RefreshCache --> StorageUsage
+    
+    %% Component to Backend
+    BlockchainVerif --> CreateTimestamp
+    Dashboard --> CheckSub
+    Settings --> CreateCheckout
+    Settings --> CustomerPortal
+    EvidenceCapture --> UploadEvidence
+    JobDetail --> GenerateReport
+    Reports --> GeneratePDF
+    StorageManagement --> CalcStorage
+    
+    %% Styling
+    classDef pagestyle fill:#dbeafe,stroke:#3b82f6,stroke-width:2px
+    classDef componentStyle fill:#dcfce7,stroke:#22c55e,stroke-width:2px
+    classDef backendStyle fill:#fef3c7,stroke:#f59e0b,stroke-width:2px
+    classDef dbStyle fill:#fce7f3,stroke:#ec4899,stroke-width:2px
+    classDef externalStyle fill:#e0e7ff,stroke:#6366f1,stroke-width:2px
+    
+    class Index,SignIn,SignUp,Dashboard,Jobs,Customers,Reports,Settings pagestyle
+    class JobForm,JobList,JobDetail,EvidenceCapture,EvidenceGallery,ClientForm,CustomersList,ApprovalWorkflow,BlockchainVerif,SignaturePad,DashboardLayout,AppSidebar,MobileBottomNav,StorageManagement componentStyle
+    class CheckSub,CreateCheckout,CustomerPortal,UploadEvidence,CreateTimestamp,GenerateReport,GeneratePDF,DeleteJob,CalcStorage,RefreshCache,Auth backendStyle
+    class Profiles,JobsTable,EvidenceItems,ClientsTable,AuditLogs,SubEvents,StorageUsage,EvidenceBucket,ReportsBucket dbStyle
+    class Stripe,OpenTimestamps externalStyle
+            </div>
+        </div>
+
+        <h2>🔄 Data Flow - Job & Evidence Lifecycle</h2>
+        <div class="diagram">
+            <div class="mermaid">
+sequenceDiagram
+    actor User
+    participant Jobs as Jobs Page
+    participant JobForm
+    participant JobList
+    participant JobDetail
+    participant Evidence as EvidenceCapture
+    participant Blockchain
+    participant Supabase
+    participant Storage
+    participant EdgeFn as Edge Functions
+    
+    User->>Jobs: Navigate to Jobs
+    Jobs->>JobList: Render Job List
+    JobList->>Supabase: Query jobs table
+    Supabase-->>JobList: Return jobs
+    JobList-->>User: Display jobs
+    
+    User->>Jobs: Click "Create Job"
+    Jobs->>JobForm: Show form
+    User->>JobForm: Fill job details
+    JobForm->>Supabase: Insert into jobs table
+    Supabase-->>JobForm: Job created
+    JobForm-->>Jobs: Refresh list
+    
+    User->>JobList: Click "Add Evidence"
+    Jobs->>Evidence: Open capture modal
+    User->>Evidence: Capture photo + GPS + signature
+    Evidence->>EdgeFn: Call upload-evidence
+    EdgeFn->>Storage: Upload file to bucket
+    EdgeFn->>Supabase: Insert evidence_items
+    EdgeFn-->>Evidence: Success
+    
+    Evidence->>Blockchain: Create timestamp
+    Blockchain->>EdgeFn: Call create-timestamp
+    EdgeFn->>Supabase: Update blockchain_timestamp
+    EdgeFn-->>Blockchain: Timestamp saved
+    
+    User->>JobList: View job details
+    JobList->>JobDetail: Navigate
+    JobDetail->>Supabase: Fetch job + evidence
+    JobDetail-->>User: Display full details
+    
+    User->>JobDetail: Generate Report
+    JobDetail->>EdgeFn: Call generate-pdf-report
+    EdgeFn->>Supabase: Fetch all data
+    EdgeFn->>Storage: Save PDF
+    EdgeFn-->>JobDetail: PDF ready
+    JobDetail-->>User: Download PDF
+            </div>
+        </div>
+
+        <h2>🗃️ Database Schema & Relationships</h2>
+        <div class="diagram">
+            <div class="mermaid">
+erDiagram
+    PROFILES ||--o{ JOBS : "owns"
+    PROFILES ||--o{ CLIENTS : "manages"
+    PROFILES ||--o{ AUDIT_LOGS : "generates"
+    PROFILES ||--o{ SUBSCRIPTION_EVENTS : "has"
+    PROFILES ||--o| STORAGE_USAGE : "tracks"
+    JOBS ||--o{ EVIDENCE_ITEMS : "contains"
+    JOBS }o--|| CLIENTS : "for"
+    
+    PROFILES {
+        uuid id PK
+        uuid user_id FK
+        text company_name
+        text phone
+        text address
+        enum subscription_status
+        text subscription_id
+        text customer_id
+        timestamp trial_ends_at
+        timestamp created_at
+        timestamp updated_at
+    }
+    
+    CLIENTS {
+        uuid id PK
+        uuid user_id FK
+        text name
+        text phone
+        text address
+        text email
+        text notes
+        timestamp created_at
+        timestamp updated_at
+    }
+    
+    JOBS {
+        uuid id PK
+        uuid user_id FK
+        uuid client_id FK
+        text client_name
+        text client_address
+        text client_phone
+        enum job_type
+        text job_description
+        decimal contract_value
+        date start_date
+        date completion_date
+        int protection_status
+        timestamp created_at
+        timestamp updated_at
+    }
+    
+    EVIDENCE_ITEMS {
+        uuid id PK
+        uuid job_id FK
+        enum evidence_type
+        text file_path
+        text file_hash
+        text blockchain_timestamp
+        decimal gps_latitude
+        decimal gps_longitude
+        decimal gps_accuracy
+        timestamp device_timestamp
+        timestamp server_timestamp
+        text description
+        boolean client_approval
+        text client_signature
+        text signature_hash
+        timestamp created_at
+    }
+    
+    AUDIT_LOGS {
+        uuid id PK
+        uuid user_id FK
+        uuid job_id FK
+        text action
+        jsonb details
+        inet ip_address
+        text user_agent
+        timestamp created_at
+    }
+    
+    SUBSCRIPTION_EVENTS {
+        uuid id PK
+        uuid user_id FK
+        text stripe_event_id
+        text event_type
+        text subscription_id
+        enum previous_status
+        enum new_status
+        timestamp created_at
+    }
+    
+    STORAGE_USAGE {
+        uuid id PK
+        uuid user_id FK
+        bigint total_size_bytes
+        bigint evidence_size_bytes
+        bigint reports_size_bytes
+        int file_count
+        timestamp last_calculated
+        timestamp updated_at
+    }
+            </div>
+        </div>
+
+        <h2>🧩 Component Hierarchy</h2>
+        <div class="diagram">
+            <div class="mermaid">
+graph TD
+    App[App.tsx]
+    App --> AuthProvider
+    App --> QueryClient[QueryClientProvider]
+    App --> Router[React Router]
+    
+    Router --> Pages[Pages]
+    
+    Pages --> P1[Dashboard]
+    Pages --> P2[Jobs]
+    Pages --> P3[Customers]
+    Pages --> P4[Reports]
+    Pages --> P5[Settings]
+    Pages --> P6[Auth Pages]
+    
+    P1 & P2 & P3 & P4 & P5 --> Layout[DashboardLayout]
+    
+    Layout --> Sidebar[AppSidebar<br/>Desktop]
+    Layout --> MobileNav[MobileBottomNav<br/>Mobile]
+    Layout --> Content[Page Content]
+    
+    P1 --> D1[RecentJobsCard]
+    P1 --> D2[JobForm]
+    P1 --> D3[Analytics]
+    P1 --> D4[BillingPopup]
+    P1 --> D5[TrialWarning]
+    
+    P2 --> J1[JobList]
+    P2 --> J2[JobForm]
+    P2 --> J3[JobDetailView]
+    P2 --> J4[EvidenceCapture]
+    P2 --> J5[ApprovalWorkflow]
+    
+    J3 --> JD1[EvidenceGallery]
+    J4 --> JD2[SignaturePad]
+    J4 --> JD3[CameraCapture]
+    J5 --> JD4[SignaturePad]
+    JD1 --> JD5[BlockchainVerification]
+    
+    P3 --> C1[CustomersList]
+    P3 --> C2[ClientForm]
+    
+    P4 --> R1[ReportsList]
+    P4 --> R2[ReportPreview]
+    
+    P5 --> S1[ProfileSettings]
+    P5 --> S2[BillingManagement]
+    P5 --> S3[PasswordChange]
+    P5 --> S4[GDPRCompliance]
+    P5 --> S5[StorageManagement]
+    
+    classDef appStyle fill:#3b82f6,stroke:#1e40af,stroke-width:3px,color:#fff
+    classDef layoutStyle fill:#8b5cf6,stroke:#6d28d9,stroke-width:2px,color:#fff
+    classDef pageStyle fill:#10b981,stroke:#059669,stroke-width:2px,color:#fff
+    classDef compStyle fill:#f59e0b,stroke:#d97706,stroke-width:1px
+    
+    class App appStyle
+    class Layout,Sidebar,MobileNav layoutStyle
+    class P1,P2,P3,P4,P5,P6 pageStyle
+    class D1,D2,D3,D4,D5,J1,J2,J3,J4,J5,C1,C2,R1,R2,S1,S2,S3,S4,S5,JD1,JD2,JD3,JD4,JD5 compStyle
+            </div>
+        </div>
+
+        <h2>🔐 Authentication Flow</h2>
+        <div class="diagram">
+            <div class="mermaid">
+graph LR
+    subgraph "Public Routes"
+        Landing[Landing Page]
+        SignIn[Sign In Page]
+        SignUp[Sign Up Page]
+    end
+    
+    subgraph "Auth Process"
+        AuthProvider[AuthProvider Context]
+        SupaAuth[Supabase Auth]
+        SessionStore[Local Storage<br/>Session]
+    end
+    
+    subgraph "Protected Routes"
+        Dashboard[Dashboard]
+        Jobs[Jobs]
+        Customers[Customers]
+        Reports[Reports]
+        Settings[Settings]
+    end
+    
+    Landing --> SignIn
+    Landing --> SignUp
+    
+    SignIn --> AuthProvider
+    SignUp --> AuthProvider
+    
+    AuthProvider --> SupaAuth
+    SupaAuth --> SessionStore
+    SessionStore --> AuthProvider
+    
+    AuthProvider --> |Authenticated| Dashboard
+    AuthProvider --> |Authenticated| Jobs
+    AuthProvider --> |Authenticated| Customers
+    AuthProvider --> |Authenticated| Reports
+    AuthProvider --> |Authenticated| Settings
+    
+    AuthProvider --> |Not Authenticated| SignIn
+    
+    Dashboard --> |Sign Out| AuthProvider
+    Jobs --> |Sign Out| AuthProvider
+    Customers --> |Sign Out| AuthProvider
+    Reports --> |Sign Out| AuthProvider
+    Settings --> |Sign Out| AuthProvider
+    
+    classDef publicStyle fill:#dbeafe,stroke:#3b82f6,stroke-width:2px
+    classDef authStyle fill:#fef3c7,stroke:#f59e0b,stroke-width:2px
+    classDef protectedStyle fill:#dcfce7,stroke:#22c55e,stroke-width:2px
+    
+    class Landing,SignIn,SignUp publicStyle
+    class AuthProvider,SupaAuth,SessionStore authStyle
+    class Dashboard,Jobs,Customers,Reports,Settings protectedStyle
+            </div>
+        </div>
+
+        <h2>💳 Payment & Subscription Flow</h2>
+        <div class="diagram">
+            <div class="mermaid">
+sequenceDiagram
+    actor User
+    participant Dashboard
+    participant Settings
+    participant CheckSub as check-subscription
+    participant CreateCO as create-checkout
+    participant Portal as customer-portal
+    participant Stripe
+    participant Webhook as stripe-webhook
+    participant DB as Supabase DB
+    
+    User->>Dashboard: Load Dashboard
+    Dashboard->>CheckSub: Check subscription status
+    CheckSub->>Stripe: Query customer
+    Stripe-->>CheckSub: Return subscription data
+    CheckSub->>DB: Update profiles table
+    CheckSub-->>Dashboard: Status returned
+    
+    alt Trial Expiring/Expired
+        Dashboard-->>User: Show trial warning
+        User->>Dashboard: Click "Upgrade"
+        Dashboard->>CreateCO: Create checkout session
+        CreateCO->>Stripe: Create session
+        Stripe-->>CreateCO: Return checkout URL
+        CreateCO-->>Dashboard: Redirect URL
+        Dashboard-->>User: Redirect to Stripe
+    end
+    
+    User->>Stripe: Complete payment
+    Stripe->>Webhook: subscription.created event
+    Webhook->>DB: Update subscription_status
+    Webhook->>DB: Log subscription_events
+    Webhook-->>Stripe: Acknowledged
+    
+    User->>Settings: Manage billing
+    Settings->>Portal: Create portal session
+    Portal->>Stripe: Create portal session
+    Stripe-->>Portal: Return portal URL
+    Portal-->>Settings: Redirect URL
+    Settings-->>User: Redirect to portal
+            </div>
+        </div>
+
+        <h2>🏗️ Technology Stack</h2>
+        <div class="diagram">
+            <div class="mermaid">
+mindmap
+    root((TradeGuard<br/>BLUHATCH))
+        Frontend
+            React 18.3.1
+                React Router
+                React Hook Form
+                React Query
+            TypeScript
+            Vite
+            Tailwind CSS
+            shadcn/ui
+                Radix UI Primitives
+            Lucide Icons
+        Backend
+            Supabase
+                PostgreSQL Database
+                Row Level Security
+                Realtime
+                Auth
+                Storage
+                Edge Functions
+            Stripe
+                Payment Processing
+                Subscription Management
+        Blockchain
+            OpenTimestamps
+                Bitcoin Blockchain
+                Proof of Existence
+        PWA
+            Service Worker
+            Offline Support
+        Security
+            JWT Authentication
+            GDPR Compliance
+            Data Encryption
+            Blockchain Verification
+            </div>
+        </div>
+
+        <h2>📱 Responsive Design System</h2>
+        <div class="diagram">
+            <div class="mermaid">
+graph TB
+    subgraph "Responsive Hooks"
+        useResponsive[useResponsive Hook]
+        useMobile[useIsMobile Hook]
+    end
+    
+    subgraph "Breakpoints"
+        XS[xs: 320px<br/>20rem]
+        SM[sm: 480px<br/>30rem]
+        MD[md: 768px<br/>48rem]
+        LG[lg: 1024px<br/>64rem]
+        XL[xl: 1280px<br/>80rem]
+    end
+    
+    subgraph "Device Types"
+        Mobile[Mobile<br/>< 768px]
+        Tablet[Tablet<br/>768px - 1024px]
+        Desktop[Desktop<br/>> 1024px]
+    end
+    
+    subgraph "Navigation Adaptation"
+        MobileNav[MobileBottomNav<br/>Fixed Bottom]
+        DesktopNav[AppSidebar<br/>Collapsible Side]
+    end
+    
+    subgraph "Component Adaptation"
+        FluidText[Fluid Typography<br/>clamp()]
+        ResponsiveGrid[Auto-fit Grid<br/>Grid Template]
+        Container[Responsive Container<br/>Fluid Padding]
+    end
+    
+    useResponsive --> XS & SM & MD & LG & XL
+    XS & SM --> Mobile
+    MD --> Tablet
+    LG & XL --> Desktop
+    
+    Mobile --> MobileNav
+    Tablet --> MobileNav
+    Desktop --> DesktopNav
+    
+    Mobile & Tablet & Desktop --> FluidText
+    Mobile & Tablet & Desktop --> ResponsiveGrid
+    Mobile & Tablet & Desktop --> Container
+    
+    classDef hookStyle fill:#3b82f6,stroke:#1e40af,stroke-width:2px,color:#fff
+    classDef bpStyle fill:#8b5cf6,stroke:#6d28d9,stroke-width:2px,color:#fff
+    classDef deviceStyle fill:#10b981,stroke:#059669,stroke-width:2px,color:#fff
+    classDef navStyle fill:#f59e0b,stroke:#d97706,stroke-width:2px
+    classDef compStyle fill:#ec4899,stroke:#be185d,stroke-width:2px,color:#fff
+    
+    class useResponsive,useMobile hookStyle
+    class XS,SM,MD,LG,XL bpStyle
+    class Mobile,Tablet,Desktop deviceStyle
+    class MobileNav,DesktopNav navStyle
+    class FluidText,ResponsiveGrid,Container compStyle
+            </div>
+        </div>
+
+        <h2>📊 Key Features Overview</h2>
+        <div class="info-box">
+            <h3>Core Functionality</h3>
+            <ul>
+                <li><strong>Job Management:</strong> Create, edit, view, and delete trade jobs</li>
+                <li><strong>Evidence Capture:</strong> Photo capture with GPS, timestamps, and client signatures</li>
+                <li><strong>Blockchain Verification:</strong> OpenTimestamps proof of existence on Bitcoin blockchain</li>
+                <li><strong>Client Management:</strong> Store and manage customer information</li>
+                <li><strong>PDF Reports:</strong> Generate comprehensive compliance reports</li>
+                <li><strong>Approval Workflow:</strong> Multi-step client approval process</li>
+                <li><strong>Subscription Management:</strong> Stripe integration with trial period</li>
+                <li><strong>Storage Management:</strong> Track and optimize file storage usage</li>
+                <li><strong>GDPR Compliance:</strong> Data access, portability, and deletion requests</li>
+                <li><strong>Responsive Design:</strong> Optimized for mobile, tablet, and desktop</li>
+            </ul>
+        </div>
+
+        <h2>🔗 API Endpoints (Edge Functions)</h2>
+        <div class="info-box">
+            <h3>Backend Services</h3>
+            <ul>
+                <li><code>check-subscription</code>: Verify Stripe subscription status</li>
+                <li><code>create-checkout</code>: Create Stripe checkout session</li>
+                <li><code>customer-portal</code>: Generate Stripe customer portal link</li>
+                <li><code>stripe-webhook</code>: Handle Stripe webhook events</li>
+                <li><code>upload-evidence</code>: Upload evidence files with hash generation</li>
+                <li><code>create-timestamp</code>: Create OpenTimestamps blockchain proof</li>
+                <li><code>generate-report</code>: Generate HTML compliance reports</li>
+                <li><code>generate-pdf-report</code>: Generate PDF compliance reports</li>
+                <li><code>delete-job</code>: Delete job and associated evidence</li>
+                <li><code>calculate-storage-usage</code>: Calculate user storage usage</li>
+                <li><code>refresh-storage-cache</code>: Refresh cached storage data</li>
+                <li><code>clear-storage-cache</code>: Clear storage cache</li>
+                <li><code>cleanup-storage</code>: Clean up orphaned files</li>
+                <li><code>cache-stats</code>: Get storage cache statistics</li>
+            </ul>
+        </div>
+
+        <div style="margin-top: 50px; padding-top: 20px; border-top: 2px solid #e5e7eb; text-align: center; color: #6b7280;">
+            <p><strong>TradeGuard / BLUHATCH</strong> - Evidence-based Protection for Trade Professionals</p>
+            <p>Built with React, TypeScript, Supabase, and Blockchain Technology</p>
+            <p style="font-size: 0.875rem; margin-top: 10px;">Generated: October 3, 2025</p>
+        </div>
+    </div>
+
+    <script>
+        mermaid.initialize({ 
+            startOnLoad: true,
+            theme: 'default',
+            flowchart: {
+                useMaxWidth: true,
+                htmlLabels: true,
+                curve: 'basis'
+            },
+            sequence: {
+                diagramMarginX: 50,
+                diagramMarginY: 10,
+                actorMargin: 50,
+                width: 150,
+                height: 65,
+                boxMargin: 10,
+                boxTextMargin: 5,
+                noteMargin: 10,
+                messageMargin: 35
+            },
+            er: {
+                useMaxWidth: true
+            }
+        });
+    </script>
+</body>
+</html>

@@ -8,6 +8,7 @@ interface SubscriptionStatus {
   subscription_end: string | null;
   in_trial: boolean;
   customer_id: string | null;
+  subscription_status: string;
 }
 
 interface AuthContextType {
@@ -48,6 +49,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           subscription_end: null,
           in_trial: false,
           customer_id: null,
+          subscription_status: 'inactive',
         });
       } else {
         setSubscription(data);
@@ -60,6 +62,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         subscription_end: null,
         in_trial: false,
         customer_id: null,
+        subscription_status: 'inactive',
       });
     } finally {
       setSubscriptionLoading(false);
