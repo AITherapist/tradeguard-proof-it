@@ -497,7 +497,7 @@ export default function Settings() {
                         <Label className="text-sm font-medium">
                           {subscription.subscription_status === 'trialing' ? 'Trial Ends' : 
                            subscription.subscription_status === 'active' ? 'Next Billing' : 
-                           subscription.subscription_status === 'cancelled' ? 'Plan Ends' : 'Status'}
+                           subscription.subscription_status === 'cancelled' ? 'Plan Ends' : 'Plan Ends'}
                         </Label>
                         <p className="text-sm text-muted-foreground">
                           {subscription.subscription_end ? new Date(subscription.subscription_end).toLocaleDateString() : 'N/A'}
